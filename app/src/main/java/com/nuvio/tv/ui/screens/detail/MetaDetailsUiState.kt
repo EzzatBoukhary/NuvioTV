@@ -20,6 +20,11 @@ enum class CommentsMode {
     EPISODE
 }
 
+enum class CommentsSource {
+    TRAKT,
+    REDDIT
+}
+
 data class MetaDetailsUiState(
     val isLoading: Boolean = true,
     val meta: Meta? = null,
@@ -59,6 +64,7 @@ data class MetaDetailsUiState(
     val episodeRatingsError: String? = null,
     val mdbListRatings: MDBListRatings? = null,
     val showMdbListImdb: Boolean = false,
+    val tmdbRating: Float? = null,
     val comments: List<TraktCommentReview> = emptyList(),
     val commentsCurrentPage: Int = 0,
     val commentsPageCount: Int = 0,
@@ -66,6 +72,10 @@ data class MetaDetailsUiState(
     val isCommentsLoadingMore: Boolean = false,
     val commentsError: String? = null,
     val shouldShowCommentsSection: Boolean = false,
+    val showTraktCommentsSource: Boolean = true,
+    val commentsSource: CommentsSource = CommentsSource.TRAKT,
+    val commentsContextTitle: String? = null,
+    val commentsContextSubtitle: String? = null,
     val commentsMode: CommentsMode = CommentsMode.TITLE,
     val commentsEpisodeTarget: Video? = null,
     val selectedComment: TraktCommentReview? = null,
@@ -76,6 +86,7 @@ data class MetaDetailsUiState(
 sealed class MetaDetailsEvent {
     data class OnSeasonSelected(val season: Int) : MetaDetailsEvent()
     data class OnEpisodeClick(val video: Video) : MetaDetailsEvent()
+    data class OnCommentsSourceSelected(val source: CommentsSource) : MetaDetailsEvent()
     data class OnCommentsModeSelected(val mode: CommentsMode) : MetaDetailsEvent()
     data class OnCommentsEpisodeSelected(val video: Video) : MetaDetailsEvent()
     data object OnPlayClick : MetaDetailsEvent()

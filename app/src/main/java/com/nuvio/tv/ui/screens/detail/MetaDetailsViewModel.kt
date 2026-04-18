@@ -15,6 +15,7 @@ import com.nuvio.tv.data.local.TraktSettingsDataStore
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
 import com.nuvio.tv.data.repository.ImdbEpisodeRatingsRepository
 import com.nuvio.tv.data.repository.MDBListRepository
+import com.nuvio.tv.data.repository.RedditCommentsService
 import com.nuvio.tv.data.repository.TraktCommentsService
 import com.nuvio.tv.data.repository.TraktRelatedService
 import com.nuvio.tv.data.repository.parseContentIds
@@ -61,6 +62,14 @@ import javax.inject.Inject
 
 private const val TAG = "MetaDetailsViewModel"
 
+private data class CommentPagePayload(
+    val items: List<TraktCommentReview>,
+    val currentPage: Int,
+    val pageCount: Int,
+    val contextTitle: String? = null,
+    val contextSubtitle: String? = null
+)
+
 @HiltViewModel
 class MetaDetailsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -77,6 +86,7 @@ class MetaDetailsViewModel @Inject constructor(
     private val trailerSettingsDataStore: TrailerSettingsDataStore,
     private val traktAuthDataStore: TraktAuthDataStore,
     private val traktCommentsService: TraktCommentsService,
+    private val redditCommentsService: RedditCommentsService,
     private val traktRelatedService: TraktRelatedService,
     private val traktSettingsDataStore: TraktSettingsDataStore,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
@@ -173,15 +183,23 @@ class MetaDetailsViewModel @Inject constructor(
                     traktAuthenticated = authenticated
 
                     val meta = _uiState.value.meta
-                    val shouldShow = enabled && authenticated && supportsComments(meta)
+                    val supports = supportsComments(meta)
+                    val shouldShow = supports
                     if (!shouldShow) {
                         cancelCommentsRequests()
                     }
 
                     _uiState.update { state ->
                         if (shouldShow) {
-                            if (state.shouldShowCommentsSection) state else state.copy(
-                                shouldShowCommentsSection = true
+                            val nextSource = if (!enabled && state.commentsSource == CommentsSource.TRAKT) {
+                                CommentsSource.REDDIT
+                            } else {
+                                state.commentsSource
+                            }
+                            state.copy(
+                                shouldShowCommentsSection = true,
+                                showTraktCommentsSource = enabled,
+                                commentsSource = nextSource
                             )
                         } else {
                             state.copy(
@@ -192,6 +210,10 @@ class MetaDetailsViewModel @Inject constructor(
                                 isCommentsLoadingMore = false,
                                 commentsError = null,
                                 shouldShowCommentsSection = false,
+                                showTraktCommentsSource = enabled,
+                                commentsSource = CommentsSource.TRAKT,
+                                commentsContextTitle = null,
+                                commentsContextSubtitle = null,
                                 commentsMode = CommentsMode.TITLE,
                                 commentsEpisodeTarget = null,
                                 selectedComment = null
@@ -269,6 +291,7 @@ class MetaDetailsViewModel @Inject constructor(
         when (event) {
             is MetaDetailsEvent.OnSeasonSelected -> selectSeason(event.season)
             is MetaDetailsEvent.OnEpisodeClick -> { /* Navigate to stream */ }
+            is MetaDetailsEvent.OnCommentsSourceSelected -> selectCommentsSource(event.source)
             is MetaDetailsEvent.OnCommentsModeSelected -> selectCommentsMode(event.mode)
             is MetaDetailsEvent.OnCommentsEpisodeSelected -> selectCommentsEpisode(event.video)
             MetaDetailsEvent.OnPlayClick -> { /* Start playback */ }
@@ -458,6 +481,7 @@ class MetaDetailsViewModel @Inject constructor(
                     episodeRatingsError = null,
                     mdbListRatings = null,
                     showMdbListImdb = false,
+                    tmdbRating = null,
                     moreLikeThis = emptyList(),
                     moreLikeThisSource = null,
                     collection = emptyList(),
@@ -469,8 +493,6 @@ class MetaDetailsViewModel @Inject constructor(
                     isCommentsLoadingMore = false,
                     commentsError = null,
                     shouldShowCommentsSection = false,
-                    commentsMode = CommentsMode.TITLE,
-                    commentsEpisodeTarget = null,
                     selectedComment = null
                 )
             }
@@ -596,7 +618,9 @@ class MetaDetailsViewModel @Inject constructor(
                 episodesForSeason = episodesForSeason,
                 error = null,
                 commentsEpisodeTarget = null,
-                shouldShowCommentsSection = traktCommentsEnabled && traktAuthenticated && supportsComments(meta)
+                shouldShowCommentsSection = supportsComments(meta),
+                showTraktCommentsSource = traktCommentsEnabled,
+                commentsSource = if (!traktCommentsEnabled) CommentsSource.REDDIT else it.commentsSource
             )
         }
 
@@ -607,7 +631,7 @@ class MetaDetailsViewModel @Inject constructor(
         // Start fetching trailer after meta is loaded
         fetchTrailerUrl()
 
-        if (traktCommentsEnabled && traktAuthenticated && supportsComments(meta)) {
+        if (supportsComments(meta)) {
             loadComments(meta)
         }
     }
@@ -623,7 +647,7 @@ class MetaDetailsViewModel @Inject constructor(
     }
 
     private fun loadComments(meta: Meta, forceRefresh: Boolean = false) {
-        if (!traktCommentsEnabled || !traktAuthenticated || !supportsComments(meta)) {
+        if (!supportsComments(meta)) {
             cancelCommentsRequests()
             _uiState.update { state ->
                 state.copy(
@@ -634,6 +658,9 @@ class MetaDetailsViewModel @Inject constructor(
                     isCommentsLoadingMore = false,
                     commentsError = null,
                     shouldShowCommentsSection = false,
+                    commentsSource = CommentsSource.TRAKT,
+                    commentsContextTitle = null,
+                    commentsContextSubtitle = null,
                     commentsMode = CommentsMode.TITLE,
                     commentsEpisodeTarget = null,
                     selectedComment = null
@@ -663,14 +690,54 @@ class MetaDetailsViewModel @Inject constructor(
             }
 
             try {
-                val page = traktCommentsService.getCommentsPage(
-                    meta = meta,
-                    fallbackItemId = itemId,
-                    fallbackItemType = itemType,
-                    targetEpisode = currentCommentsEpisodeTarget(meta),
-                    page = 1,
-                    forceRefresh = forceRefresh
-                )
+                val stateSource = _uiState.value.commentsSource
+                val source = if (stateSource == CommentsSource.TRAKT && !traktCommentsEnabled) {
+                    CommentsSource.REDDIT
+                } else {
+                    stateSource
+                }
+                if (source != stateSource) {
+                    _uiState.update { state -> state.copy(commentsSource = source) }
+                }
+                val page = when (source) {
+                    CommentsSource.TRAKT -> {
+                        if (!traktAuthenticated) {
+                            throw IllegalStateException(context.getString(R.string.detail_comments_trakt_sign_in_required))
+                        }
+                        val trakt = traktCommentsService.getCommentsPage(
+                            meta = meta,
+                            fallbackItemId = itemId,
+                            fallbackItemType = itemType,
+                            targetEpisode = currentCommentsEpisodeTarget(meta),
+                            page = 1,
+                            forceRefresh = forceRefresh
+                        )
+                        CommentPagePayload(
+                            items = trakt.items,
+                            currentPage = trakt.currentPage,
+                            pageCount = trakt.pageCount,
+                            contextTitle = null,
+                            contextSubtitle = null
+                        )
+                    }
+
+                    CommentsSource.REDDIT -> {
+                        val reddit = redditCommentsService.getCommentsPage(
+                            meta = meta,
+                            fallbackItemId = itemId,
+                            targetEpisode = currentCommentsEpisodeTarget(meta),
+                            page = 1,
+                            forceRefresh = forceRefresh
+                        )
+                        CommentPagePayload(
+                            items = reddit.items,
+                            currentPage = reddit.currentPage,
+                            pageCount = reddit.pageCount,
+                            contextTitle = reddit.sourceTitle,
+                            contextSubtitle = reddit.sourceSubtitle
+                        )
+                    }
+                }
 
                 _uiState.update { state ->
                     if (state.meta == null || state.meta.id != meta.id) {
@@ -684,6 +751,8 @@ class MetaDetailsViewModel @Inject constructor(
                             isCommentsLoadingMore = false,
                             commentsError = null,
                             shouldShowCommentsSection = true,
+                            commentsContextTitle = page.contextTitle,
+                            commentsContextSubtitle = page.contextSubtitle,
                             selectedComment = state.selectedComment?.let { selected ->
                                 page.items.firstOrNull { it.id == selected.id }
                             }
@@ -693,7 +762,8 @@ class MetaDetailsViewModel @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                Log.w(TAG, "Failed to load Trakt comments for ${meta.id}: ${error.message}")
+                val sourceLabel = _uiState.value.commentsSource.name
+                Log.w(TAG, "Failed to load $sourceLabel comments for ${meta.id}: ${error.message}")
                 _uiState.update { state ->
                     if (state.meta == null || state.meta.id != meta.id) {
                         state
@@ -704,7 +774,7 @@ class MetaDetailsViewModel @Inject constructor(
                             commentsPageCount = 0,
                             isCommentsLoading = false,
                             isCommentsLoadingMore = false,
-                            commentsError = context.getString(R.string.detail_comments_error),
+                            commentsError = error.message ?: context.getString(R.string.detail_comments_error),
                             shouldShowCommentsSection = true
                         )
                     }
@@ -725,7 +795,7 @@ class MetaDetailsViewModel @Inject constructor(
     private fun loadMoreComments(selectNextAfterLoad: Boolean = false) {
         val state = _uiState.value
         val meta = state.meta ?: return
-        if (!traktCommentsEnabled || !traktAuthenticated || !supportsComments(meta)) return
+        if (!supportsComments(meta)) return
         if (state.isCommentsLoading || state.isCommentsLoadingMore || state.commentsCurrentPage == 0) return
         if (state.commentsPageCount > 0 && state.commentsCurrentPage >= state.commentsPageCount) return
 
@@ -740,13 +810,49 @@ class MetaDetailsViewModel @Inject constructor(
             }
 
             try {
-                val page = traktCommentsService.getCommentsPage(
-                    meta = meta,
-                    fallbackItemId = itemId,
-                    fallbackItemType = itemType,
-                    targetEpisode = currentCommentsEpisodeTarget(meta),
-                    page = nextPage
-                )
+                val stateSource = _uiState.value.commentsSource
+                val source = if (stateSource == CommentsSource.TRAKT && !traktCommentsEnabled) {
+                    CommentsSource.REDDIT
+                } else {
+                    stateSource
+                }
+                val page = when (source) {
+                    CommentsSource.TRAKT -> {
+                        if (!traktAuthenticated) {
+                            throw IllegalStateException(context.getString(R.string.detail_comments_trakt_sign_in_required))
+                        }
+                        val trakt = traktCommentsService.getCommentsPage(
+                            meta = meta,
+                            fallbackItemId = itemId,
+                            fallbackItemType = itemType,
+                            targetEpisode = currentCommentsEpisodeTarget(meta),
+                            page = nextPage
+                        )
+                        CommentPagePayload(
+                            items = trakt.items,
+                            currentPage = trakt.currentPage,
+                            pageCount = trakt.pageCount,
+                            contextTitle = null,
+                            contextSubtitle = null
+                        )
+                    }
+
+                    CommentsSource.REDDIT -> {
+                        val reddit = redditCommentsService.getCommentsPage(
+                            meta = meta,
+                            fallbackItemId = itemId,
+                            targetEpisode = currentCommentsEpisodeTarget(meta),
+                            page = nextPage
+                        )
+                        CommentPagePayload(
+                            items = reddit.items,
+                            currentPage = reddit.currentPage,
+                            pageCount = reddit.pageCount,
+                            contextTitle = reddit.sourceTitle,
+                            contextSubtitle = reddit.sourceSubtitle
+                        )
+                    }
+                }
 
                 _uiState.update { current ->
                     if (current.meta?.id != meta.id) {
@@ -768,6 +874,8 @@ class MetaDetailsViewModel @Inject constructor(
                             commentsPageCount = maxOf(current.commentsPageCount, page.pageCount),
                             isCommentsLoadingMore = false,
                             commentsError = null,
+                            commentsContextTitle = page.contextTitle,
+                            commentsContextSubtitle = page.contextSubtitle,
                             selectedComment = if (shouldAdvanceSelection) appended.first() else current.selectedComment
                         )
                     }
@@ -775,11 +883,33 @@ class MetaDetailsViewModel @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                Log.w(TAG, "Failed to load more Trakt comments for ${meta.id}: ${error.message}")
+                Log.w(TAG, "Failed to load more comments for ${meta.id}: ${error.message}")
                 _uiState.update { current ->
                     if (current.meta?.id != meta.id) current else current.copy(isCommentsLoadingMore = false)
                 }
             }
+        }
+    }
+
+    private fun selectCommentsSource(source: CommentsSource) {
+        val meta = _uiState.value.meta ?: return
+        if (source == CommentsSource.TRAKT && !traktCommentsEnabled) return
+        if (_uiState.value.commentsSource == source) return
+
+        _uiState.update {
+            it.copy(
+                commentsSource = source,
+                commentsCurrentPage = 0,
+                commentsPageCount = 0,
+                comments = emptyList(),
+                commentsContextTitle = null,
+                commentsContextSubtitle = null,
+                selectedComment = null
+            )
+        }
+
+        if (supportsComments(meta)) {
+            loadComments(meta, forceRefresh = true)
         }
     }
 
@@ -1102,7 +1232,11 @@ class MetaDetailsViewModel @Inject constructor(
             if (enrichment.genres.isNotEmpty()) {
                 updated = updated.copy(genres = enrichment.genres)
             }
-            updated = updated.copy(imdbRating = enrichment.rating?.toFloat() ?: updated.imdbRating)
+        }
+
+        // Store TMDB rating separately so it can be shown with its own icon on the details screen.
+        if (enrichment?.rating != null) {
+            _uiState.update { it.copy(tmdbRating = enrichment.rating.toFloat()) }
         }
 
         if (enrichment != null && settings.useDetails) {
@@ -1197,8 +1331,7 @@ class MetaDetailsViewModel @Inject constructor(
     }
 
     private fun selectSeason(season: Int) {
-        val meta = _uiState.value.meta ?: return
-        val episodes = getEpisodesForSeason(meta.videos, season)
+        val episodes = _uiState.value.meta?.videos?.let { getEpisodesForSeason(it, season) } ?: emptyList()
         _uiState.update {
             it.copy(
                 selectedSeason = season,
@@ -1228,7 +1361,7 @@ class MetaDetailsViewModel @Inject constructor(
                 selectedComment = null
             )
         }
-        if (traktCommentsEnabled && traktAuthenticated && supportsComments(meta)) {
+        if (supportsComments(meta)) {
             loadComments(meta, forceRefresh = true)
         }
     }
@@ -1245,7 +1378,7 @@ class MetaDetailsViewModel @Inject constructor(
                 selectedComment = null
             )
         }
-        if (traktCommentsEnabled && traktAuthenticated && supportsComments(meta)) {
+        if (supportsComments(meta)) {
             loadComments(meta, forceRefresh = true)
         }
     }

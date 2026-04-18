@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.detail
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -66,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.platform.LocalContext
 import androidx.tv.material3.Border
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
@@ -80,42 +83,57 @@ import com.nuvio.tv.domain.model.Video
 import com.nuvio.tv.ui.components.NuvioDialog
 import com.nuvio.tv.ui.theme.NuvioColors
 import com.nuvio.tv.ui.util.localizeEpisodeTitle
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.max
 
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalTvMaterial3Api::class)
 @Composable
 fun CommentsSection(
     comments: List<TraktCommentReview>,
+    contentTitle: String,
+    showTraktSource: Boolean,
+    commentsSource: CommentsSource,
+    commentsContextTitle: String?,
+    commentsContextSubtitle: String?,
     commentsMode: CommentsMode,
     canToggleEpisodeComments: Boolean,
+    traktSourceFocusRequester: FocusRequester? = null,
+    redditSourceFocusRequester: FocusRequester? = null,
     titleModeFocusRequester: FocusRequester? = null,
     episodeModeFocusRequester: FocusRequester? = null,
     selectedEpisode: Video?,
     allEpisodes: List<Video>,
     selectedSeason: Int?,
     availableSeasons: List<Int>,
+    entryFocusToken: Int = 0,
+    onEntryFocusHandled: () -> Unit = {},
     isLoading: Boolean,
     isLoadingMore: Boolean,
     canLoadMore: Boolean,
     error: String?,
     upFocusRequester: FocusRequester? = null,
-    entryFocusToken: Int = 0,
-    onEntryFocusHandled: () -> Unit = {},
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
+    onCommentsSourceSelected: (CommentsSource) -> Unit,
     onCommentsModeSelected: (CommentsMode) -> Unit,
     onEpisodeSelected: (Video) -> Unit,
     onCommentClick: (TraktCommentReview) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val cardShape = RoundedCornerShape(16.dp)
     val firstItemFocusRequester = remember { FocusRequester() }
+    val internalTraktSourceFocusRequester = remember { FocusRequester() }
+    val internalRedditSourceFocusRequester = remember { FocusRequester() }
     val internalTitleModeFocusRequester = remember { FocusRequester() }
     val internalEpisodeModeFocusRequester = remember { FocusRequester() }
+    val internalGoogleSearchFocusRequester = remember { FocusRequester() }
+    val resolvedTraktSourceFocusRequester = traktSourceFocusRequester ?: internalTraktSourceFocusRequester
+    val resolvedRedditSourceFocusRequester = redditSourceFocusRequester ?: internalRedditSourceFocusRequester
     val resolvedTitleModeFocusRequester = titleModeFocusRequester ?: internalTitleModeFocusRequester
     val resolvedEpisodeModeFocusRequester = episodeModeFocusRequester ?: internalEpisodeModeFocusRequester
+    val resolvedGoogleSearchFocusRequester = internalGoogleSearchFocusRequester
     val commentFocusRequesters = remember(comments) { mutableMapOf<Long, FocusRequester>() }
     val listState = rememberLazyListState()
     var showEpisodePicker by remember { mutableStateOf(false) }
@@ -125,6 +143,11 @@ fun CommentsSection(
         resolvedEpisodeModeFocusRequester
     } else {
         resolvedTitleModeFocusRequester
+    }
+    val sourceFocusRequester = if (commentsSource == CommentsSource.REDDIT) {
+        resolvedRedditSourceFocusRequester
+    } else {
+        resolvedTraktSourceFocusRequester
     }
     val visibleFirstCommentId = remember(comments, listState.firstVisibleItemIndex) {
         comments.getOrNull(max(listState.firstVisibleItemIndex, 0))?.id
@@ -154,7 +177,7 @@ fun CommentsSection(
     val pickerEpisodes = remember(allEpisodes, pickerSeason) {
         val season = pickerSeason
         if (season == null) {
-            emptyList()
+            emptyList<Video>()
         } else {
             allEpisodes
                 .filter { it.season == season }
@@ -166,14 +189,26 @@ fun CommentsSection(
     } else {
         Modifier
     }
-    val subtitleText = if (commentsMode == CommentsMode.EPISODE && selectedEpisode != null) {
-        stringResource(
-            R.string.detail_comments_subtitle_episode,
-            selectedEpisode.season ?: 0,
-            selectedEpisode.episode ?: 0
-        )
+    val subtitleText = if (commentsSource == CommentsSource.REDDIT) {
+        if (commentsMode == CommentsMode.EPISODE && selectedEpisode != null) {
+            stringResource(
+                R.string.detail_reddit_comments_subtitle_episode,
+                selectedEpisode.season ?: 0,
+                selectedEpisode.episode ?: 0
+            )
+        } else {
+            stringResource(R.string.detail_reddit_comments_subtitle)
+        }
     } else {
-        stringResource(R.string.detail_comments_subtitle)
+        if (commentsMode == CommentsMode.EPISODE && selectedEpisode != null) {
+            stringResource(
+                R.string.detail_comments_subtitle_episode,
+                selectedEpisode.season ?: 0,
+                selectedEpisode.episode ?: 0
+            )
+        } else {
+            stringResource(R.string.detail_comments_subtitle)
+        }
     }
 
     LaunchedEffect(listState, comments.size, canLoadMore, isLoadingMore, isLoading, error) {
@@ -204,20 +239,17 @@ fun CommentsSection(
 
     LaunchedEffect(entryFocusToken) {
         if (entryFocusToken > 0) {
-            controlsFocusRequester.requestFocusAfterFrames()
+            if (canToggleEpisodeComments) {
+                controlsFocusRequester.requestFocusAfterFrames()
+            } else {
+                sourceFocusRequester.requestFocusAfterFrames()
+            }
             onEntryFocusHandled()
         }
     }
 
     Column(
         modifier = modifier
-            .then(
-                if (canToggleEpisodeComments) {
-                    Modifier.focusRestorer(controlsFocusRequester)
-                } else {
-                    Modifier
-                }
-            )
             .fillMaxWidth()
             .padding(top = 20.dp, bottom = 8.dp)
     ) {
@@ -248,6 +280,71 @@ fun CommentsSection(
             color = NuvioColors.TextSecondary,
             modifier = Modifier.padding(horizontal = 48.dp)
         )
+        if (!commentsContextSubtitle.isNullOrBlank() || !commentsContextTitle.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = buildString {
+                    if (!commentsContextSubtitle.isNullOrBlank()) {
+                        append(commentsContextSubtitle)
+                    }
+                    if (!commentsContextTitle.isNullOrBlank()) {
+                        if (isNotBlank()) append("  •  ")
+                        append(commentsContextTitle)
+                    }
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = NuvioColors.TextTertiary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 48.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 48.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (showTraktSource) {
+                CommentModeButton(
+                    text = stringResource(R.string.detail_comments_source_trakt),
+                    selected = commentsSource == CommentsSource.TRAKT,
+                    focusRequester = resolvedTraktSourceFocusRequester,
+                    upFocusRequester = upFocusRequester,
+                    downFocusRequester = if (canToggleEpisodeComments) controlsFocusRequester else commentsTargetFocusRequester,
+                    rightFocusRequester = resolvedRedditSourceFocusRequester,
+                    onClick = { onCommentsSourceSelected(CommentsSource.TRAKT) }
+                )
+            }
+            CommentModeButton(
+                text = stringResource(R.string.detail_comments_source_reddit),
+                selected = commentsSource == CommentsSource.REDDIT,
+                focusRequester = resolvedRedditSourceFocusRequester,
+                upFocusRequester = upFocusRequester,
+                downFocusRequester = if (canToggleEpisodeComments) controlsFocusRequester else commentsTargetFocusRequester,
+                leftFocusRequester = if (showTraktSource) resolvedTraktSourceFocusRequester else FocusRequester.Cancel,
+                rightFocusRequester = resolvedGoogleSearchFocusRequester,
+                onClick = { onCommentsSourceSelected(CommentsSource.REDDIT) }
+            )
+            CommentModeButton(
+                text = stringResource(R.string.detail_comments_open_google_discussion_short),
+                selected = false,
+                focusRequester = resolvedGoogleSearchFocusRequester,
+                upFocusRequester = upFocusRequester,
+                downFocusRequester = if (canToggleEpisodeComments) controlsFocusRequester else commentsTargetFocusRequester,
+                leftFocusRequester = resolvedRedditSourceFocusRequester,
+                rightFocusRequester = FocusRequester.Cancel,
+                onClick = {
+                    val url = buildGoogleDiscussionSearchUrl(
+                        contentTitle = contentTitle,
+                        commentsMode = commentsMode,
+                        selectedEpisode = selectedEpisode
+                    )
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                }
+            )
+        }
         if (canToggleEpisodeComments) {
             Spacer(modifier = Modifier.height(12.dp))
             Row(
@@ -261,7 +358,7 @@ fun CommentsSection(
                     text = stringResource(R.string.detail_comments_mode_show),
                     selected = commentsMode == CommentsMode.TITLE,
                     focusRequester = resolvedTitleModeFocusRequester,
-                    upFocusRequester = upFocusRequester,
+                    upFocusRequester = sourceFocusRequester,
                     downFocusRequester = commentsTargetFocusRequester,
                     rightFocusRequester = resolvedEpisodeModeFocusRequester,
                     onClick = { onCommentsModeSelected(CommentsMode.TITLE) }
@@ -277,7 +374,7 @@ fun CommentsSection(
                     },
                     selected = commentsMode == CommentsMode.EPISODE,
                     focusRequester = resolvedEpisodeModeFocusRequester,
-                    upFocusRequester = upFocusRequester,
+                    upFocusRequester = sourceFocusRequester,
                     downFocusRequester = commentsTargetFocusRequester,
                     leftFocusRequester = resolvedTitleModeFocusRequester,
                     rightFocusRequester = FocusRequester.Cancel,
@@ -298,7 +395,7 @@ fun CommentsSection(
                 LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRestorer(commentsTargetFocusRequester),
+                        .focusRestorer { firstItemFocusRequester },
                     contentPadding = PaddingValues(horizontal = 48.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -315,7 +412,9 @@ fun CommentsSection(
                                                     up = controlsFocusRequester
                                                 }
                                             } else {
-                                                upFocusModifier
+                                                Modifier.focusProperties {
+                                                    up = resolvedGoogleSearchFocusRequester
+                                                }
                                             }
                                         )
                                 } else {
@@ -347,7 +446,9 @@ fun CommentsSection(
                                         up = controlsFocusRequester
                                     }
                                 } else {
-                                    upFocusModifier
+                                    Modifier.focusProperties {
+                                        up = resolvedGoogleSearchFocusRequester
+                                    }
                                 }
                             ),
                         colors = ButtonDefaults.colors(
@@ -361,42 +462,45 @@ fun CommentsSection(
             }
 
             comments.isEmpty() -> {
-                Text(
-                    text = stringResource(R.string.detail_comments_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = NuvioColors.TextSecondary,
-                    modifier = Modifier.padding(horizontal = 48.dp)
-                )
+                Column(
+                    modifier = Modifier.padding(horizontal = 48.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.detail_comments_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = NuvioColors.TextSecondary
+                    )
+                }
             }
 
             else -> {
                 LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .focusRestorer(commentsTargetFocusRequester),
+                        .focusRestorer { firstItemFocusRequester },
                     state = listState,
                     contentPadding = PaddingValues(horizontal = 48.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(comments, key = { it.id }) { review ->
-                        val commentFocusRequester = commentFocusRequesters.getOrPut(review.id) { FocusRequester() }
+                        val commentFocusRequester = commentFocusRequesters.getOrPut(review.id) {
+                            FocusRequester()
+                        }
                         CommentCard(
                             review = review,
                             shape = cardShape,
                             modifier = Modifier
-                                .then(
-                                    when {
-                                        lastFocusedCommentId == review.id -> Modifier.focusRequester(commentFocusRequester)
-                                        else -> Modifier.focusRequester(commentFocusRequester)
-                                    }
-                                )
+                                .focusRequester(commentFocusRequester)
                                 .then(
                                     if (canToggleEpisodeComments) {
                                         Modifier.focusProperties {
                                             up = controlsFocusRequester
                                         }
                                     } else {
-                                        upFocusModifier
+                                        Modifier.focusProperties {
+                                            up = resolvedGoogleSearchFocusRequester
+                                        }
                                     }
                                 )
                                 .onFocusChanged { focusState ->
@@ -430,6 +534,166 @@ fun CommentsSection(
                 onEpisodeSelected(it)
             }
         )
+    }
+}
+
+private fun buildGoogleDiscussionSearchUrl(
+    contentTitle: String,
+    commentsMode: CommentsMode,
+    selectedEpisode: Video?
+): String {
+    val episodePart = if (
+        commentsMode == CommentsMode.EPISODE &&
+        selectedEpisode?.season != null &&
+        selectedEpisode.episode != null
+    ) {
+        "S${selectedEpisode.season.toString().padStart(2, '0')}E${selectedEpisode.episode.toString().padStart(2, '0')}"
+    } else {
+        ""
+    }
+
+    val query = listOf("reddit", contentTitle, episodePart, "discussion")
+        .filter { it.isNotBlank() }
+        .joinToString(" ")
+
+    return "https://www.google.com/search?q=${Uri.encode(query)}"
+}
+
+private fun selectedEpisodeLabel(video: Video): String {
+    val season = video.season ?: 0
+    val episode = video.episode ?: 0
+    return "S${season.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}"
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun EpisodeCommentPickerDialog(
+    seasons: List<Int>,
+    episodes: List<Video>,
+    season: Int?,
+    selectedEpisodeId: String?,
+    onDismiss: () -> Unit,
+    onSeasonSelected: (Int) -> Unit,
+    onEpisodeSelected: (Video) -> Unit
+) {
+    val primaryFocusRequester = remember { FocusRequester() }
+    val selectedSeasonFocusRequester = remember { FocusRequester() }
+    val selectedEpisodeFocusRequester = remember { FocusRequester() }
+    val seasonListState = rememberLazyListState()
+    val episodeListState = rememberLazyListState()
+    val sortedSeasons = remember(seasons) {
+        seasons.filter { it > 0 }.sorted() + seasons.filter { it == 0 }
+    }
+
+    LaunchedEffect(season, selectedEpisodeId, episodes, sortedSeasons) {
+        season?.let { activeSeason ->
+            val selectedSeasonIndex = sortedSeasons.indexOf(activeSeason)
+            if (selectedSeasonIndex >= 0) {
+                seasonListState.scrollToItem(selectedSeasonIndex)
+            }
+        }
+        selectedEpisodeId?.let { activeEpisodeId ->
+            val selectedEpisodeIndex = episodes.indexOfFirst { it.id == activeEpisodeId }
+            if (selectedEpisodeIndex >= 0) {
+                episodeListState.scrollToItem(selectedEpisodeIndex)
+            }
+        }
+        withFrameNanos { }
+        if (selectedEpisodeId != null && episodes.any { it.id == selectedEpisodeId }) {
+            selectedEpisodeFocusRequester.requestFocus()
+        } else {
+            primaryFocusRequester.requestFocus()
+        }
+    }
+
+    NuvioDialog(
+        onDismiss = onDismiss,
+        title = stringResource(R.string.detail_comments_episode_picker_title),
+        subtitle = stringResource(R.string.detail_comments_episode_picker_subtitle),
+        width = 560.dp,
+        suppressFirstKeyUp = false
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (seasons.isNotEmpty()) {
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    state = seasonListState,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(sortedSeasons, key = { it }) { seasonNumber ->
+                        val seasonModifier = if (seasonNumber == season) {
+                            Modifier.focusRequester(selectedSeasonFocusRequester)
+                        } else {
+                            Modifier
+                        }
+                        Button(
+                            onClick = { onSeasonSelected(seasonNumber) },
+                            modifier = seasonModifier,
+                            colors = ButtonDefaults.colors(
+                                containerColor = if (seasonNumber == season) {
+                                    NuvioColors.Secondary
+                                } else {
+                                    NuvioColors.BackgroundCard
+                                },
+                                contentColor = if (seasonNumber == season) {
+                                    NuvioColors.OnSecondary
+                                } else {
+                                    NuvioColors.TextPrimary
+                                }
+                            )
+                        ) {
+                            Text(
+                                text = if (seasonNumber == 0) {
+                                    stringResource(R.string.episodes_specials)
+                                } else {
+                                    stringResource(R.string.episodes_season, seasonNumber)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(320.dp),
+                state = episodeListState,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(episodes, key = { it.id }) { episode ->
+                    val episodeModifier = when {
+                        episode.id == selectedEpisodeId -> Modifier
+                            .fillMaxWidth()
+                            .focusRequester(selectedEpisodeFocusRequester)
+                        episode.id == episodes.firstOrNull()?.id -> Modifier
+                            .fillMaxWidth()
+                            .focusRequester(primaryFocusRequester)
+                        else -> Modifier.fillMaxWidth()
+                    }
+                    Button(
+                        onClick = { onEpisodeSelected(episode) },
+                        modifier = episodeModifier,
+                        colors = ButtonDefaults.colors(
+                            containerColor = if (episode.id == selectedEpisodeId) {
+                                NuvioColors.FocusBackground
+                            } else {
+                                NuvioColors.BackgroundCard
+                            },
+                            contentColor = NuvioColors.TextPrimary
+                        )
+                    ) {
+                        Text(
+                            text = "${selectedEpisodeLabel(episode)}  ${episode.title.localizeEpisodeTitle(androidx.compose.ui.platform.LocalContext.current)}",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -567,138 +831,6 @@ private fun CommentChip(text: String) {
             color = NuvioColors.TextPrimary,
             maxLines = 1
         )
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun EpisodeCommentPickerDialog(
-    seasons: List<Int>,
-    episodes: List<Video>,
-    season: Int?,
-    selectedEpisodeId: String?,
-    onDismiss: () -> Unit,
-    onSeasonSelected: (Int) -> Unit,
-    onEpisodeSelected: (Video) -> Unit
-) {
-    val primaryFocusRequester = remember { FocusRequester() }
-    val selectedSeasonFocusRequester = remember { FocusRequester() }
-    val selectedEpisodeFocusRequester = remember { FocusRequester() }
-    val seasonListState = rememberLazyListState()
-    val episodeListState = rememberLazyListState()
-    val sortedSeasons = remember(seasons) {
-        seasons.filter { it > 0 }.sorted() + seasons.filter { it == 0 }
-    }
-
-    LaunchedEffect(season, selectedEpisodeId, episodes, sortedSeasons) {
-        season?.let { activeSeason ->
-            val selectedSeasonIndex = sortedSeasons.indexOf(activeSeason)
-            if (selectedSeasonIndex >= 0) {
-                seasonListState.scrollToItem(selectedSeasonIndex)
-            }
-        }
-        selectedEpisodeId?.let { activeEpisodeId ->
-            val selectedEpisodeIndex = episodes.indexOfFirst { it.id == activeEpisodeId }
-            if (selectedEpisodeIndex >= 0) {
-                episodeListState.scrollToItem(selectedEpisodeIndex)
-            }
-        }
-        withFrameNanos { }
-        if (selectedEpisodeId != null && episodes.any { it.id == selectedEpisodeId }) {
-            selectedEpisodeFocusRequester.requestFocus()
-        } else {
-            primaryFocusRequester.requestFocus()
-        }
-    }
-
-    NuvioDialog(
-        onDismiss = onDismiss,
-        title = stringResource(R.string.detail_comments_episode_picker_title),
-        subtitle = stringResource(R.string.detail_comments_episode_picker_subtitle),
-        width = 560.dp,
-        suppressFirstKeyUp = false
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (seasons.isNotEmpty()) {
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    state = seasonListState,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(sortedSeasons, key = { it }) { seasonNumber ->
-                        val seasonModifier = if (seasonNumber == season) {
-                            Modifier.focusRequester(selectedSeasonFocusRequester)
-                        } else {
-                            Modifier
-                        }
-                        Button(
-                            onClick = { onSeasonSelected(seasonNumber) },
-                            modifier = seasonModifier,
-                            colors = ButtonDefaults.colors(
-                                containerColor = if (seasonNumber == season) {
-                                    NuvioColors.Secondary
-                                } else {
-                                    NuvioColors.BackgroundCard
-                                },
-                                contentColor = if (seasonNumber == season) {
-                                    NuvioColors.OnSecondary
-                                } else {
-                                    NuvioColors.TextPrimary
-                                }
-                            )
-                        ) {
-                            Text(
-                                text = if (seasonNumber == 0) {
-                                    stringResource(R.string.episodes_specials)
-                                } else {
-                                    stringResource(R.string.episodes_season, seasonNumber)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(320.dp),
-                state = episodeListState,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(episodes, key = { it.id }) { episode ->
-                    val episodeModifier = when {
-                        episode.id == selectedEpisodeId -> Modifier
-                            .fillMaxWidth()
-                            .focusRequester(selectedEpisodeFocusRequester)
-                        episode.id == episodes.firstOrNull()?.id -> Modifier
-                            .fillMaxWidth()
-                            .focusRequester(primaryFocusRequester)
-                        else -> Modifier.fillMaxWidth()
-                    }
-                    Button(
-                        onClick = { onEpisodeSelected(episode) },
-                        modifier = episodeModifier,
-                        colors = ButtonDefaults.colors(
-                            containerColor = if (episode.id == selectedEpisodeId) {
-                                NuvioColors.FocusBackground
-                            } else {
-                                NuvioColors.BackgroundCard
-                            },
-                            contentColor = NuvioColors.TextPrimary
-                        )
-                    ) {
-                        Text(
-                            text = "${selectedEpisodeLabel(episode)}  ${episode.title.localizeEpisodeTitle(androidx.compose.ui.platform.LocalContext.current)}",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -1007,12 +1139,6 @@ private fun commentMaxLines(length: Int): Int = when {
     length <= 650 -> 17
     length <= 900 -> 22
     else -> 28
-}
-
-private fun selectedEpisodeLabel(video: Video): String {
-    val season = video.season ?: 0
-    val episode = video.episode ?: 0
-    return "S${season.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}"
 }
 
 @Composable

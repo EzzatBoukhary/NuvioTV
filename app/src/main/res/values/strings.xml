@@ -185,9 +185,14 @@
     <string name="detail_tab_more_like_this">More like this</string>
     <string name="detail_more_like_this_powered_by_tmdb">Powered by TMDB</string>
     <string name="detail_more_like_this_powered_by_trakt">Powered by Trakt</string>
-    <string name="detail_comments_title">Comments</string>
+    <string name="detail_comments_title">Reviews &amp; Discussions</string>
     <string name="detail_comments_subtitle">Reviews from Trakt</string>
     <string name="detail_comments_subtitle_episode">Reviews from Trakt for S%1$dE%2$d</string>
+    <string name="detail_reddit_comments_subtitle">Discussions from Reddit</string>
+    <string name="detail_reddit_comments_subtitle_episode">Discussions from Reddit for S%1$dE%2$d</string>
+    <string name="detail_comments_source_trakt">Trakt</string>
+    <string name="detail_comments_source_reddit">Reddit</string>
+    <string name="detail_comments_trakt_sign_in_required">Sign in to Trakt to view Trakt comments, or switch source to Reddit.</string>
     <string name="detail_comments_mode_show">Show</string>
     <string name="detail_comments_mode_episode">Episode</string>
     <string name="detail_comments_mode_episode_change">Change Episode (%1$s)</string>
@@ -197,6 +202,8 @@
     <string name="detail_section_production">Production</string>
     <string name="detail_comments_empty">No Trakt reviews available yet.</string>
     <string name="detail_comments_error">Couldn\'t load Trakt reviews right now.</string>
+    <string name="detail_comments_open_google_discussion">Search Discussions on Google</string>
+    <string name="detail_comments_open_google_discussion_short">Google Discussions</string>
     <string name="detail_comments_spoiler_hidden">Spoiler review. Press OK to reveal.</string>
     <string name="detail_comments_reveal_spoiler">Reveal spoiler</string>
     <string name="detail_comments_reveal_spoiler_hint">Press OK to reveal spoiler.</string>
@@ -213,6 +220,7 @@
     <string name="tmdb_entity_empty_title">No titles found</string>
     <string name="tmdb_entity_empty_subtitle">TMDB does not currently have browseable titles for this selection.</string>
     <string name="episodes_unavailable">Unavailable</string>
+    <!-- Status labels for series (some languages need gendered forms) -->
     <string name="series_status_ended">Ended</string>
     <string name="series_status_continuing">Ongoing</string>
     <string name="series_status_current">Current</string>
@@ -222,6 +230,16 @@
     <string name="series_status_rumored">Rumored</string>
     <string name="series_status_in_production">In Production</string>
     <string name="series_status_post_production">Post Production</string>
+    <!-- Status labels for movies (allows gendered translations in languages that need it) -->
+    <string name="movie_status_ended">Ended</string>
+    <string name="movie_status_continuing">Ongoing</string>
+    <string name="movie_status_current">Current</string>
+    <string name="movie_status_cancelled">Cancelled</string>
+    <string name="movie_status_released">Released</string>
+    <string name="movie_status_planned">Planned</string>
+    <string name="movie_status_rumored">Rumored</string>
+    <string name="movie_status_in_production">In Production</string>
+    <string name="movie_status_post_production">Post Production</string>
     <string name="detail_lists_fallback">Lists</string>
     <string name="detail_lists_subtitle">Select which lists should include this title.</string>
     <string name="action_save">Save</string>
@@ -262,14 +280,14 @@
     <string name="settings_profiles">Profiles</string>
     <string name="settings_profiles_subtitle">Manage user profiles</string>
     <string name="settings_layout">Layout</string>
-    <string name="settings_layout_subtitle">Home structure and poster styles.</string>
+    <string name="settings_layout_subtitle">Home structure and poster styles</string>
     <string name="settings_plugins">Plugins</string>
-    <string name="settings_plugins_subtitle">Repositories and providers.</string>
+    <string name="settings_plugins_subtitle">Repositories and providers</string>
     <string name="settings_integration">Integration</string>
     <string name="settings_playback">Playback</string>
-    <string name="settings_playback_subtitle">Player, subtitles, and auto-play.</string>
-    <string name="settings_trakt_subtitle">Open Trakt connection screen.</string>
-    <string name="settings_about_subtitle">Version and policies.</string>
+    <string name="settings_playback_subtitle">Player, subtitles, and auto-play</string>
+    <string name="settings_trakt_subtitle">Open Trakt connection screen</string>
+    <string name="settings_about_subtitle">Version and policies</string>
     <string name="settings_network">Network speed</string>
     <string name="settings_network_subtitle">Latency and download diagnostics</string>
     <string name="settings_advanced">Advanced</string>
@@ -288,7 +306,7 @@
     <string name="network_connection_ethernet">Ethernet</string>
     <string name="network_connection_offline">Offline</string>
     <string name="settings_debug">Debug</string>
-    <string name="settings_debug_subtitle">Developer tools and feature flags.</string>
+    <string name="settings_debug_subtitle">Developer tools and feature flags</string>
     <string name="settings_plugins_section_subtitle">Manage repositories, providers, and plugin states</string>
     <string name="settings_account_section_subtitle">Account and sync status</string>
     <string name="account_stat_addons">addons</string>
@@ -764,7 +782,7 @@
 
     <!-- ProfileSettingsContent -->
     <string name="profile_title">Profiles</string>
-    <string name="profile_subtitle">Manage user profiles for this account.</string>
+    <string name="profile_subtitle">Manage user profiles for this account</string>
     <string name="profile_manage_button">Manage Profiles</string>
     <string name="profile_manage_title">Manage Profiles</string>
     <string name="profile_manage_subtitle">Select a profile to edit, switch, or create a new one</string>
@@ -824,6 +842,8 @@
     <string name="profile_pin_overlay_remove_verify_kicker">Security check required.</string>
     <string name="profile_pin_overlay_remove_verify_heading">Enter current PIN to remove lock for %1$s.</string>
     <string name="profile_pin_overlay_remove_verify_support">Enter the current 4-digit PIN to remove this lock.</string>
+    <string name="profile_pin_overlay_delete_verify_heading">Enter current PIN to delete %1$s.</string>
+    <string name="profile_pin_overlay_delete_verify_support">Enter the current 4-digit PIN before deleting this profile.</string>
     <string name="profile_pin_overlay_set_support">This PIN will be required before opening this profile.</string>
     <string name="profile_pin_overlay_confirm_support">Re-enter the same 4 digits to finish setup.</string>
     <string name="profile_pin_overlay_mismatch">PINs did not match. Enter a new PIN again.</string>
@@ -1323,6 +1343,7 @@
     <string name="profile_pin_invalid">Invalid PIN. Try again.</string>
     <string name="profile_pin_verify_error">Could not verify PIN. Try again.</string>
     <string name="profile_pin_incorrect">Current PIN is incorrect.</string>
+    <string name="profile_pin_current_required">This profile already has a PIN. Enter the current PIN to change it.</string>
 
     <!-- Account Screen -->
     <string name="account_signin_create_title">Sign In / Create Account</string>

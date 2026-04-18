@@ -15,6 +15,7 @@ import com.nuvio.tv.data.remote.api.IntroDbApi
 import com.nuvio.tv.data.remote.api.ImdbTapframeApi
 import com.nuvio.tv.data.remote.api.MDBListApi
 import com.nuvio.tv.data.remote.api.ParentalGuideApi
+import com.nuvio.tv.data.remote.api.RedditApi
 import com.nuvio.tv.data.remote.api.SeriesGraphApi
 import com.nuvio.tv.data.remote.api.TmdbApi
 import com.squareup.moshi.Moshi
@@ -199,6 +200,21 @@ object NetworkModule {
     @Singleton
     fun provideTraktApi(@Named("trakt") retrofit: Retrofit): TraktApi =
         retrofit.create(TraktApi::class.java)
+
+    @Provides
+    @Singleton
+    @Named("reddit")
+    fun provideRedditRetrofit(okHttpClient: OkHttpClient, moshi: Moshi): Retrofit =
+        Retrofit.Builder()
+            .baseUrl("https://www.reddit.com/")
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+
+    @Provides
+    @Singleton
+    fun provideRedditApi(@Named("reddit") retrofit: Retrofit): RedditApi =
+        retrofit.create(RedditApi::class.java)
 
     @Provides
     @Singleton

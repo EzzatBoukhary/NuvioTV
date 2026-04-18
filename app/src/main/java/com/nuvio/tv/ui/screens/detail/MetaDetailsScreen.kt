@@ -429,6 +429,7 @@ fun MetaDetailsScreen(
                     episodeRatingsError = uiState.episodeRatingsError,
                     mdbListRatings = uiState.mdbListRatings,
                     showMdbListImdb = uiState.showMdbListImdb,
+                    tmdbRating = uiState.tmdbRating,
                     comments = uiState.comments,
                     commentsCurrentPage = uiState.commentsCurrentPage,
                     commentsPageCount = uiState.commentsPageCount,
@@ -436,6 +437,10 @@ fun MetaDetailsScreen(
                     isCommentsLoadingMore = uiState.isCommentsLoadingMore,
                     commentsError = uiState.commentsError,
                     shouldShowCommentsSection = uiState.shouldShowCommentsSection,
+                    showTraktCommentsSource = uiState.showTraktCommentsSource,
+                    commentsSource = uiState.commentsSource,
+                    commentsContextTitle = uiState.commentsContextTitle,
+                    commentsContextSubtitle = uiState.commentsContextSubtitle,
                     commentsMode = uiState.commentsMode,
                     commentsEpisodeTarget = uiState.commentsEpisodeTarget,
                     selectedComment = uiState.selectedComment,
@@ -585,6 +590,7 @@ fun MetaDetailsScreen(
                     onTrailerButtonClick = { viewModel.onEvent(MetaDetailsEvent.OnTrailerButtonClick) },
                     onRetryComments = { viewModel.onEvent(MetaDetailsEvent.OnRetryComments) },
                     onLoadMoreComments = { viewModel.onEvent(MetaDetailsEvent.OnLoadMoreComments) },
+                    onCommentsSourceSelected = { viewModel.onEvent(MetaDetailsEvent.OnCommentsSourceSelected(it)) },
                     onCommentsModeSelected = { viewModel.onEvent(MetaDetailsEvent.OnCommentsModeSelected(it)) },
                     onCommentsEpisodeSelected = { viewModel.onEvent(MetaDetailsEvent.OnCommentsEpisodeSelected(it)) },
                     onCommentClick = {
@@ -701,6 +707,7 @@ private fun MetaDetailsContent(
     episodeRatingsError: String?,
     mdbListRatings: MDBListRatings?,
     showMdbListImdb: Boolean,
+    tmdbRating: Float?,
     comments: List<TraktCommentReview>,
     commentsCurrentPage: Int,
     commentsPageCount: Int,
@@ -708,6 +715,10 @@ private fun MetaDetailsContent(
     isCommentsLoadingMore: Boolean,
     commentsError: String?,
     shouldShowCommentsSection: Boolean,
+    showTraktCommentsSource: Boolean,
+    commentsSource: CommentsSource,
+    commentsContextTitle: String?,
+    commentsContextSubtitle: String?,
     commentsMode: CommentsMode,
     commentsEpisodeTarget: Video?,
     selectedComment: TraktCommentReview?,
@@ -740,6 +751,7 @@ private fun MetaDetailsContent(
     onTrailerButtonClick: () -> Unit,
     onRetryComments: () -> Unit,
     onLoadMoreComments: () -> Unit,
+    onCommentsSourceSelected: (CommentsSource) -> Unit,
     onCommentsModeSelected: (CommentsMode) -> Unit,
     onCommentsEpisodeSelected: (Video) -> Unit,
     onCommentClick: (TraktCommentReview) -> Unit,
@@ -803,6 +815,8 @@ private fun MetaDetailsContent(
     val castSectionFocusRequester = remember { FocusRequester() }
     val moreLikeSectionFocusRequester = remember { FocusRequester() }
     val collectionSectionFocusRequester = remember { FocusRequester() }
+    val commentsTraktSourceFocusRequester = remember { FocusRequester() }
+    val commentsRedditSourceFocusRequester = remember { FocusRequester() }
     val commentsTitleModeFocusRequester = remember { FocusRequester() }
     val commentsEpisodeModeFocusRequester = remember { FocusRequester() }
     var pendingRestoreType by rememberSaveable { mutableStateOf<RestoreTarget?>(null) }
@@ -1150,6 +1164,8 @@ private fun MetaDetailsContent(
         else -> heroPlayFocusRequester
     }
     val canToggleEpisodeComments = isSeries && episodesForSeason.isNotEmpty()
+    val commentsSelectedSourceFocusRequester =
+        if (commentsSource == CommentsSource.REDDIT) commentsRedditSourceFocusRequester else commentsTraktSourceFocusRequester
     val commentsSelectedModeFocusRequester =
         if (commentsMode == CommentsMode.EPISODE) commentsEpisodeModeFocusRequester else commentsTitleModeFocusRequester
 
@@ -1552,7 +1568,7 @@ private fun MetaDetailsContent(
                                     title = if (hasPeopleTabs) "" else strTabCast,
                                     leadingCast = directorWriterMembers,
                                     upFocusRequester = if (hasPeopleTabs) castTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester,
-                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else null,
+                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else commentsSelectedSourceFocusRequester,
                                     sectionFocusRequester = castSectionFocusRequester,
                                     restorePersonId = if (pendingRestoreType == RestoreTarget.CAST_MEMBER) pendingRestoreCastPersonId else null,
                                     restoreFocusToken = if (pendingRestoreType == RestoreTarget.CAST_MEMBER) restoreFocusToken else 0,
@@ -1577,7 +1593,7 @@ private fun MetaDetailsContent(
                                     items = moreLikeThis,
                                     sourceLabel = moreLikeThisSourceLabel,
                                     upFocusRequester = if (hasPeopleTabs) moreLikeTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester,
-                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else null,
+                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else commentsSelectedSourceFocusRequester,
                                     sectionFocusRequester = moreLikeSectionFocusRequester,
                                     restoreItemId = if (pendingRestoreType == RestoreTarget.MORE_LIKE_THIS) pendingRestoreMoreLikeItemId else null,
                                     restoreFocusToken = if (pendingRestoreType == RestoreTarget.MORE_LIKE_THIS) restoreFocusToken else 0,
@@ -1595,7 +1611,7 @@ private fun MetaDetailsContent(
                                 CollectionSection(
                                     items = collection,
                                     upFocusRequester = if (hasPeopleTabs) collectionTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester,
-                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else null,
+                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else commentsSelectedSourceFocusRequester,
                                     sectionFocusRequester = collectionSectionFocusRequester,
                                     restoreItemId = if (pendingRestoreType == RestoreTarget.COLLECTION) pendingRestoreCollectionItemId else null,
                                     restoreFocusToken = if (pendingRestoreType == RestoreTarget.COLLECTION) restoreFocusToken else 0,
@@ -1621,7 +1637,7 @@ private fun MetaDetailsContent(
                                     } else {
                                         seasonDownFocusRequester ?: heroPlayFocusRequester
                                     },
-                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else null,
+                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else commentsSelectedSourceFocusRequester,
                                     firstItemFocusRequester = ratingsContentFocusRequester,
                                     modifier = Modifier.heightIn(min = if (!hasItemsBelow) castSectionHeight else 0.dp)
                                 )
@@ -1635,8 +1651,15 @@ private fun MetaDetailsContent(
                 item(key = "trakt_comments", contentType = "horizontal_row") {
                     CommentsSection(
                         comments = comments,
+                        contentTitle = meta.name,
+                        showTraktSource = showTraktCommentsSource,
+                        commentsSource = commentsSource,
+                        commentsContextTitle = commentsContextTitle,
+                        commentsContextSubtitle = commentsContextSubtitle,
                         commentsMode = commentsMode,
                         canToggleEpisodeComments = canToggleEpisodeComments,
+                        traktSourceFocusRequester = commentsTraktSourceFocusRequester,
+                        redditSourceFocusRequester = commentsRedditSourceFocusRequester,
                         titleModeFocusRequester = commentsTitleModeFocusRequester,
                         episodeModeFocusRequester = commentsEpisodeModeFocusRequester,
                         selectedEpisode = commentsEpisodeTarget,
@@ -1654,6 +1677,7 @@ private fun MetaDetailsContent(
                         },
                         onRetry = onRetryComments,
                         onLoadMore = onLoadMoreComments,
+                        onCommentsSourceSelected = onCommentsSourceSelected,
                         onCommentsModeSelected = onCommentsModeSelected,
                         onEpisodeSelected = onCommentsEpisodeSelected,
                         onCommentClick = onCommentClick,
