@@ -764,6 +764,7 @@ class MetaDetailsViewModel @Inject constructor(
             } catch (error: Exception) {
                 val sourceLabel = _uiState.value.commentsSource.name
                 Log.w(TAG, "Failed to load $sourceLabel comments for ${meta.id}: ${error.message}")
+                val source = _uiState.value.commentsSource
                 _uiState.update { state ->
                     if (state.meta == null || state.meta.id != meta.id) {
                         state
@@ -774,7 +775,7 @@ class MetaDetailsViewModel @Inject constructor(
                             commentsPageCount = 0,
                             isCommentsLoading = false,
                             isCommentsLoadingMore = false,
-                            commentsError = error.message ?: context.getString(R.string.detail_comments_error),
+                            commentsError = mapCommentsError(source, error),
                             shouldShowCommentsSection = true
                         )
                     }
@@ -1428,6 +1429,22 @@ class MetaDetailsViewModel @Inject constructor(
         return allEpisodes.firstOrNull { it.season == preferredSeason }
             ?: allEpisodes.firstOrNull { (it.season ?: 0) > 0 }
             ?: allEpisodes.first()
+    }
+
+    private fun mapCommentsError(source: CommentsSource, error: Exception): String {
+        val raw = error.message?.trim().orEmpty()
+        if (source == CommentsSource.REDDIT) {
+            if (raw.contains("429") || raw.contains("rate limit", ignoreCase = true)) {
+                return context.getString(R.string.detail_comments_reddit_rate_limited)
+            }
+            return context.getString(R.string.detail_comments_error_reddit)
+        }
+
+        if (raw.contains("sign in", ignoreCase = true)) {
+            return context.getString(R.string.detail_comments_trakt_sign_in_required)
+        }
+
+        return context.getString(R.string.detail_comments_error_trakt)
     }
 
     private fun reevaluateSeriesWatchedBadge() {

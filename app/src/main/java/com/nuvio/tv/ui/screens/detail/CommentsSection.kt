@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -258,15 +257,6 @@ fun CommentsSection(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.trakt_logo_wordmark),
-                contentDescription = stringResource(R.string.cd_trakt_logo),
-                modifier = Modifier
-                    .offset(y = (-1).dp)
-                    .width(47.dp)
-                    .height(20.dp),
-                colorFilter = ColorFilter.tint(NuvioColors.TextPrimary)
-            )
             Text(
                 text = stringResource(R.string.detail_comments_title),
                 style = MaterialTheme.typography.titleLarge,
@@ -280,25 +270,6 @@ fun CommentsSection(
             color = NuvioColors.TextSecondary,
             modifier = Modifier.padding(horizontal = 48.dp)
         )
-        if (!commentsContextSubtitle.isNullOrBlank() || !commentsContextTitle.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = buildString {
-                    if (!commentsContextSubtitle.isNullOrBlank()) {
-                        append(commentsContextSubtitle)
-                    }
-                    if (!commentsContextTitle.isNullOrBlank()) {
-                        if (isNotBlank()) append("  •  ")
-                        append(commentsContextTitle)
-                    }
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = NuvioColors.TextTertiary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 48.dp)
-            )
-        }
         Spacer(modifier = Modifier.height(12.dp))
         Row(
             modifier = Modifier
@@ -838,6 +809,9 @@ private fun CommentChip(text: String) {
 @Composable
 fun CommentOverlay(
     review: TraktCommentReview,
+    commentsSource: CommentsSource,
+    commentsContextTitle: String?,
+    commentsContextSubtitle: String?,
     canNavigatePrevious: Boolean,
     canNavigateNext: Boolean,
     isLoadingNext: Boolean,
@@ -924,7 +898,7 @@ fun CommentOverlay(
             Column(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .width(168.dp)
+                    .width(232.dp)
                     .padding(top = 6.dp, end = 4.dp)
                     .focusRequester(primaryFocusRequester)
                     .focusable()
@@ -934,15 +908,40 @@ fun CommentOverlay(
                 horizontalAlignment = Alignment.Start,
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.trakt_logo_wordmark),
-                    contentDescription = stringResource(R.string.cd_trakt_logo),
-                    modifier = Modifier.width(168.dp),
-                    colorFilter = ColorFilter.tint(Color.White.copy(alpha = 0.92f))
-                )
+                if (commentsSource == CommentsSource.TRAKT) {
+                    Image(
+                        painter = painterResource(id = R.drawable.trakt_logo_wordmark),
+                        contentDescription = stringResource(R.string.cd_trakt_logo),
+                        modifier = Modifier.width(168.dp),
+                        colorFilter = ColorFilter.tint(Color.White.copy(alpha = 0.92f))
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.detail_comments_source_reddit),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color.White.copy(alpha = 0.92f)
+                    )
+                }
+                if (commentsSource == CommentsSource.REDDIT && (!commentsContextSubtitle.isNullOrBlank() || !commentsContextTitle.isNullOrBlank())) {
+                    Text(
+                        text = buildString {
+                            if (!commentsContextSubtitle.isNullOrBlank()) {
+                                append(commentsContextSubtitle)
+                            }
+                            if (!commentsContextTitle.isNullOrBlank()) {
+                                if (isNotBlank()) append("  •  ")
+                                append(commentsContextTitle)
+                            }
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.56f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 Text(
                     text = stringResource(R.string.detail_comments_back_hint),
-                    modifier = Modifier.padding(start = 18.dp),
+                    modifier = Modifier.padding(start = 2.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.34f)
                 )
@@ -986,12 +985,6 @@ private fun CommentOverlayContent(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text(
-            text = stringResource(R.string.detail_comments_title),
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.White.copy(alpha = 0.82f)
-        )
-
         Column(
             modifier = Modifier
                 .fillMaxWidth()

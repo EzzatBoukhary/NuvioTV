@@ -1792,6 +1792,9 @@ private fun MetaDetailsContent(
         selectedComment?.let { review ->
             CommentOverlay(
                 review = review,
+                commentsSource = commentsSource,
+                commentsContextTitle = commentsContextTitle,
+                commentsContextSubtitle = commentsContextSubtitle,
                 canNavigatePrevious = selectedCommentIndex > 0,
                 canNavigateNext = selectedCommentIndex >= 0 && (
                     selectedCommentIndex < comments.lastIndex || canLoadMoreComments || isCommentsLoadingMore
