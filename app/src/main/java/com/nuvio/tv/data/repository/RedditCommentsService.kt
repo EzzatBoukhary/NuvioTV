@@ -751,9 +751,7 @@ class RedditCommentsService @Inject constructor(
             val levelPrefix = "│   ".repeat(depthClamped)
             val bodyIndent = " ".repeat((author.length + 1).coerceAtMost(24))
 
-            // Start this reply block with a guide-aware separator so guides are continuous.
-            append("\n")
-            append(levelPrefix)
+            // Start reply on the next line with guide prefix and author label.
             append("\n")
             append(levelPrefix)
             append(author)
