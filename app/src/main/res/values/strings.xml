@@ -196,6 +196,7 @@
     <string name="detail_comments_mode_show">Show</string>
     <string name="detail_comments_mode_episode">Episode</string>
     <string name="detail_comments_mode_episode_change">Change Episode (%1$s)</string>
+    <string name="detail_comments_mode_pick_episode">Pick Episode (%1$s)</string>
     <string name="detail_comments_episode_picker_title">Choose Episode</string>
     <string name="detail_comments_episode_picker_subtitle">Pick an episode to view reviews and discussions</string>
     <string name="detail_section_network">Network</string>
@@ -209,6 +210,7 @@
     <string name="detail_comments_reddit_rate_limited">Reddit is temporarily rate limiting requests. Please wait a minute and try again.</string>
     <string name="detail_comments_open_google_discussion">Search Discussions on Google</string>
     <string name="detail_comments_open_google_discussion_short">Search Google for discussions</string>
+    <string name="detail_comments_search_google_external">Search Google (External)</string>
     <string name="detail_comments_spoiler_hidden">Spoiler review. Press OK to reveal.</string>
     <string name="detail_comments_reveal_spoiler">Reveal spoiler</string>
     <string name="detail_comments_reveal_spoiler_hint">Press OK to reveal spoiler.</string>

@@ -2,6 +2,11 @@ package com.nuvio.tv.ui.screens.detail
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -23,10 +28,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyRow
@@ -63,6 +71,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -74,9 +83,11 @@ import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
+import com.nuvio.tv.domain.model.NextToWatch
 import com.nuvio.tv.domain.model.TraktCommentReview
 import com.nuvio.tv.domain.model.Video
 import com.nuvio.tv.ui.components.NuvioDialog
@@ -109,6 +120,8 @@ fun CommentsSection(
     episodeModeFocusRequester: FocusRequester? = null,
     selectedEpisode: Video?,
     allEpisodes: List<Video>,
+    watchedEpisodes: Set<Pair<Int, Int>>,
+    nextToWatch: NextToWatch?,
     selectedSeason: Int?,
     availableSeasons: List<Int>,
     entryFocusToken: Int = 0,
@@ -133,27 +146,29 @@ fun CommentsSection(
     val internalRedditSourceFocusRequester = remember { FocusRequester() }
     val internalTitleModeFocusRequester = remember { FocusRequester() }
     val internalEpisodeModeFocusRequester = remember { FocusRequester() }
-    val internalGoogleSearchFocusRequester = remember { FocusRequester() }
     val resolvedTraktSourceFocusRequester = traktSourceFocusRequester ?: internalTraktSourceFocusRequester
     val resolvedRedditSourceFocusRequester = redditSourceFocusRequester ?: internalRedditSourceFocusRequester
     val resolvedTitleModeFocusRequester = titleModeFocusRequester ?: internalTitleModeFocusRequester
     val resolvedEpisodeModeFocusRequester = episodeModeFocusRequester ?: internalEpisodeModeFocusRequester
-    val resolvedGoogleSearchFocusRequester = internalGoogleSearchFocusRequester
     val commentFocusRequesters = remember(comments) { mutableMapOf<Long, FocusRequester>() }
     val listState = rememberLazyListState()
     var showEpisodePicker by remember { mutableStateOf(false) }
+    var expandedSelector by remember { mutableStateOf<CommentsSelectorMenu?>(null) }
+    var focusedSourceMenuItem by remember { mutableStateOf<String?>(null) }
+    var focusedScopeMenuItem by remember { mutableStateOf<String?>(null) }
     var pickerSeason by rememberSaveable { mutableStateOf<Int?>(null) }
     var lastFocusedCommentId by rememberSaveable { mutableStateOf<Long?>(null) }
-    val controlsFocusRequester = if (commentsMode == CommentsMode.EPISODE) {
+    val modeFocusRequester = if (commentsMode == CommentsMode.EPISODE) {
         resolvedEpisodeModeFocusRequester
     } else {
         resolvedTitleModeFocusRequester
     }
-    val sourceFocusRequester = if (commentsSource == CommentsSource.REDDIT) {
+    val sourceFocusRequester = if (!showTraktSource || commentsSource == CommentsSource.REDDIT) {
         resolvedRedditSourceFocusRequester
     } else {
         resolvedTraktSourceFocusRequester
     }
+    val controlsFocusRequester = sourceFocusRequester
     val visibleFirstCommentId = remember(comments, listState.firstVisibleItemIndex) {
         comments.getOrNull(max(listState.firstVisibleItemIndex, 0))?.id
     }
@@ -176,7 +191,45 @@ fun CommentsSection(
         }
         targetId?.let { commentFocusRequesters.getOrPut(it) { FocusRequester() } } ?: firstItemFocusRequester
     }
-    val pickerDefaultSeason = selectedEpisode?.season
+    val sortedEpisodes = remember(allEpisodes) {
+        allEpisodes.sortedWith(compareBy<Video>({ it.season ?: Int.MAX_VALUE }, { it.episode ?: Int.MAX_VALUE }))
+    }
+    val latestWatchedEpisode = remember(allEpisodes, watchedEpisodes) {
+        watchedEpisodes
+            .maxWithOrNull(compareBy<Pair<Int, Int>>({ it.first }, { it.second }))
+            ?.let { latestWatched ->
+                allEpisodes.firstOrNull { episode ->
+                    episode.season == latestWatched.first && episode.episode == latestWatched.second
+                }
+            }
+    }
+    val nextToWatchEpisode = remember(allEpisodes, nextToWatch) {
+        nextToWatch?.nextVideoId?.let { nextId ->
+            allEpisodes.firstOrNull { it.id == nextId }
+        } ?: nextToWatch?.let { target ->
+            allEpisodes.firstOrNull { it.season == target.nextSeason && it.episode == target.nextEpisode }
+        }
+    }
+    val episodeBeforeNextToWatch = remember(sortedEpisodes, nextToWatchEpisode) {
+        val nextIndex = sortedEpisodes.indexOfFirst { it.id == nextToWatchEpisode?.id }
+        if (nextIndex > 0) sortedEpisodes[nextIndex - 1] else null
+    }
+    val defaultEpisodeTarget = remember(
+        allEpisodes,
+        latestWatchedEpisode,
+        episodeBeforeNextToWatch,
+        nextToWatchEpisode,
+        selectedEpisode,
+        selectedSeason
+    ) {
+        selectedEpisode
+            ?: latestWatchedEpisode
+            ?: episodeBeforeNextToWatch
+            ?: nextToWatchEpisode
+            ?: allEpisodes.firstOrNull { it.season == selectedSeason }
+            ?: allEpisodes.firstOrNull()
+    }
+    val pickerDefaultSeason = defaultEpisodeTarget?.season
         ?: selectedSeason
         ?: availableSeasons.firstOrNull()
     val pickerEpisodes = remember(allEpisodes, pickerSeason) {
@@ -194,28 +247,6 @@ fun CommentsSection(
     } else {
         Modifier
     }
-    val subtitleText = if (commentsSource == CommentsSource.REDDIT) {
-        if (commentsMode == CommentsMode.EPISODE && selectedEpisode != null) {
-            stringResource(
-                R.string.detail_reddit_comments_subtitle_episode,
-                selectedEpisode.season ?: 0,
-                selectedEpisode.episode ?: 0
-            )
-        } else {
-            stringResource(R.string.detail_reddit_comments_subtitle)
-        }
-    } else {
-        if (commentsMode == CommentsMode.EPISODE && selectedEpisode != null) {
-            stringResource(
-                R.string.detail_comments_subtitle_episode,
-                selectedEpisode.season ?: 0,
-                selectedEpisode.episode ?: 0
-            )
-        } else {
-            stringResource(R.string.detail_comments_subtitle)
-        }
-    }
-
     LaunchedEffect(listState, comments.size, canLoadMore, isLoadingMore, isLoading, error) {
         if (isLoading || !error.isNullOrBlank()) return@LaunchedEffect
         snapshotFlow {
@@ -235,7 +266,7 @@ fun CommentsSection(
         }
     }
 
-    LaunchedEffect(commentsMode, selectedEpisode?.id) {
+    LaunchedEffect(commentsMode, selectedEpisode?.id, commentsSource) {
         lastFocusedCommentId = null
         if (listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0) {
             listState.scrollToItem(0)
@@ -244,13 +275,18 @@ fun CommentsSection(
 
     LaunchedEffect(entryFocusToken) {
         if (entryFocusToken > 0) {
-            if (canToggleEpisodeComments) {
-                controlsFocusRequester.requestFocusAfterFrames()
-            } else {
-                sourceFocusRequester.requestFocusAfterFrames()
-            }
+            sourceFocusRequester.requestFocusAfterFrames()
             onEntryFocusHandled()
         }
+    }
+
+    val openGoogleSearch: () -> Unit = {
+        val url = buildGoogleDiscussionSearchUrl(
+            contentTitle = contentTitle,
+            commentsMode = commentsMode,
+            selectedEpisode = selectedEpisode
+        )
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     }
 
     Column(
@@ -269,101 +305,250 @@ fun CommentsSection(
                 color = NuvioColors.TextPrimary
             )
         }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = subtitleText,
-            style = MaterialTheme.typography.bodyMedium,
-            color = NuvioColors.TextSecondary,
-            modifier = Modifier.padding(horizontal = 48.dp)
-        )
         Spacer(modifier = Modifier.height(12.dp))
         Row(
             modifier = Modifier
-                .padding(horizontal = 48.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 48.dp)
+                .focusRestorer(sourceFocusRequester),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (showTraktSource) {
-                CommentModeButton(
-                    text = stringResource(R.string.detail_comments_source_trakt),
-                    selected = commentsSource == CommentsSource.TRAKT,
-                    focusRequester = resolvedTraktSourceFocusRequester,
-                    upFocusRequester = upFocusRequester,
-                    downFocusRequester = if (canToggleEpisodeComments) controlsFocusRequester else commentsTargetFocusRequester,
-                    rightFocusRequester = resolvedRedditSourceFocusRequester,
-                    onClick = { onCommentsSourceSelected(CommentsSource.TRAKT) }
-                )
-            }
-            CommentModeButton(
-                text = stringResource(R.string.detail_comments_source_reddit),
-                selected = commentsSource == CommentsSource.REDDIT,
-                focusRequester = resolvedRedditSourceFocusRequester,
-                upFocusRequester = upFocusRequester,
-                downFocusRequester = if (canToggleEpisodeComments) controlsFocusRequester else commentsTargetFocusRequester,
-                leftFocusRequester = if (showTraktSource) resolvedTraktSourceFocusRequester else FocusRequester.Cancel,
-                rightFocusRequester = resolvedGoogleSearchFocusRequester,
-                onClick = { onCommentsSourceSelected(CommentsSource.REDDIT) }
-            )
-            CommentModeButton(
-                text = stringResource(R.string.detail_comments_open_google_discussion_short),
-                selected = false,
-                focusRequester = resolvedGoogleSearchFocusRequester,
-                upFocusRequester = upFocusRequester,
-                downFocusRequester = if (canToggleEpisodeComments) controlsFocusRequester else commentsTargetFocusRequester,
-                leftFocusRequester = resolvedRedditSourceFocusRequester,
-                rightFocusRequester = FocusRequester.Cancel,
-                onClick = {
-                    val url = buildGoogleDiscussionSearchUrl(
-                        contentTitle = contentTitle,
-                        commentsMode = commentsMode,
-                        selectedEpisode = selectedEpisode
-                    )
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                }
-            )
-        }
-        if (canToggleEpisodeComments) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier
-                    .padding(horizontal = 48.dp)
-                    .focusRestorer(controlsFocusRequester),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                CommentModeButton(
-                    text = stringResource(R.string.detail_comments_mode_show),
-                    selected = commentsMode == CommentsMode.TITLE,
-                    focusRequester = resolvedTitleModeFocusRequester,
-                    upFocusRequester = sourceFocusRequester,
-                    downFocusRequester = commentsTargetFocusRequester,
-                    rightFocusRequester = resolvedEpisodeModeFocusRequester,
-                    onClick = { onCommentsModeSelected(CommentsMode.TITLE) }
-                )
-                CommentModeButton(
-                    text = if (commentsMode == CommentsMode.EPISODE && selectedEpisode != null) {
-                        stringResource(
-                            R.string.detail_comments_mode_episode_change,
-                            selectedEpisodeLabel(selectedEpisode)
-                        )
+            Box {
+                CommentSelectorCard(
+                    title = "Source",
+                    value = if (commentsSource == CommentsSource.REDDIT || !showTraktSource) {
+                        stringResource(R.string.detail_comments_source_reddit)
                     } else {
-                        stringResource(R.string.detail_comments_mode_episode)
+                        stringResource(R.string.detail_comments_source_trakt)
                     },
-                    selected = commentsMode == CommentsMode.EPISODE,
-                    focusRequester = resolvedEpisodeModeFocusRequester,
-                    upFocusRequester = sourceFocusRequester,
+                    selected = true,
+                    showIndicator = true,
+                    width = 158.dp,
+                    focusRequester = sourceFocusRequester,
+                    upFocusRequester = upFocusRequester,
                     downFocusRequester = commentsTargetFocusRequester,
-                    leftFocusRequester = resolvedTitleModeFocusRequester,
-                    rightFocusRequester = FocusRequester.Cancel,
-                    onClick = {
-                        if (commentsMode == CommentsMode.EPISODE && allEpisodes.isNotEmpty()) {
-                            showEpisodePicker = true
-                        } else {
-                            onCommentsModeSelected(CommentsMode.EPISODE)
-                        }
-                    }
+                    leftFocusRequester = FocusRequester.Cancel,
+                    rightFocusRequester = if (canToggleEpisodeComments) modeFocusRequester else FocusRequester.Cancel,
+                    onClick = { expandedSelector = CommentsSelectorMenu.SOURCE }
                 )
+                DropdownMenu(
+                    expanded = expandedSelector == CommentsSelectorMenu.SOURCE,
+                    onDismissRequest = {
+                        expandedSelector = null
+                        focusedSourceMenuItem = null
+                    },
+                    modifier = Modifier
+                        .width(220.dp)
+                        .heightIn(max = 220.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    containerColor = NuvioColors.BackgroundCard,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 8.dp,
+                    border = BorderStroke(1.dp, NuvioColors.Border)
+                ) {
+                    if (showTraktSource) {
+                        val isFocused = focusedSourceMenuItem == "trakt"
+                        val isSelected = commentsSource == CommentsSource.TRAKT
+                        val itemTextColor = when {
+                            isFocused -> NuvioColors.OnSecondary
+                            else -> NuvioColors.TextPrimary
+                        }
+                        val itemBackgroundColor = when {
+                            isFocused -> NuvioColors.Secondary
+                            isSelected -> NuvioColors.FocusBackground
+                            else -> Color.Transparent
+                        }
+                        DropdownMenuItem(
+                            modifier = Modifier
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .background(
+                                    color = itemBackgroundColor,
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                .onFocusChanged { state ->
+                                    val hasFocus = state.isFocused || state.hasFocus
+                                    focusedSourceMenuItem = if (hasFocus) "trakt" else if (focusedSourceMenuItem == "trakt") null else focusedSourceMenuItem
+                                },
+                            text = { androidx.compose.material3.Text(stringResource(R.string.detail_comments_source_trakt), color = itemTextColor) },
+                            onClick = {
+                                expandedSelector = null
+                                focusedSourceMenuItem = null
+                                onCommentsSourceSelected(CommentsSource.TRAKT)
+                            },
+                            colors = MenuDefaults.itemColors(
+                                textColor = itemTextColor,
+                                disabledTextColor = NuvioColors.TextDisabled
+                            )
+                        )
+                    }
+                    val isRedditFocused = focusedSourceMenuItem == "reddit"
+                    val isRedditSelected = commentsSource == CommentsSource.REDDIT
+                    val redditTextColor = when {
+                        isRedditFocused -> NuvioColors.OnSecondary
+                        else -> NuvioColors.TextPrimary
+                    }
+                    val redditBackgroundColor = when {
+                        isRedditFocused -> NuvioColors.Secondary
+                        isRedditSelected -> NuvioColors.FocusBackground
+                        else -> Color.Transparent
+                    }
+                    DropdownMenuItem(
+                        modifier = Modifier
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .background(
+                                color = redditBackgroundColor,
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .onFocusChanged { state ->
+                                val hasFocus = state.isFocused || state.hasFocus
+                                focusedSourceMenuItem = if (hasFocus) "reddit" else if (focusedSourceMenuItem == "reddit") null else focusedSourceMenuItem
+                            },
+                        text = { androidx.compose.material3.Text(stringResource(R.string.detail_comments_source_reddit), color = redditTextColor) },
+                        onClick = {
+                            expandedSelector = null
+                            focusedSourceMenuItem = null
+                            onCommentsSourceSelected(CommentsSource.REDDIT)
+                        },
+                        colors = MenuDefaults.itemColors(
+                            textColor = redditTextColor,
+                            disabledTextColor = NuvioColors.TextDisabled
+                        )
+                    )
+                    val isGoogleFocused = focusedSourceMenuItem == "google"
+                    val googleTextColor = if (isGoogleFocused) NuvioColors.OnSecondary else NuvioColors.TextPrimary
+                    DropdownMenuItem(
+                        modifier = Modifier
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .background(
+                                color = if (isGoogleFocused) NuvioColors.Secondary else Color.Transparent,
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .onFocusChanged { state ->
+                                val hasFocus = state.isFocused || state.hasFocus
+                                focusedSourceMenuItem = if (hasFocus) "google" else if (focusedSourceMenuItem == "google") null else focusedSourceMenuItem
+                            },
+                        text = { androidx.compose.material3.Text(stringResource(R.string.detail_comments_search_google_external), color = googleTextColor) },
+                        onClick = {
+                            expandedSelector = null
+                            focusedSourceMenuItem = null
+                            openGoogleSearch()
+                        },
+                        colors = MenuDefaults.itemColors(
+                            textColor = googleTextColor,
+                            disabledTextColor = NuvioColors.TextDisabled
+                        )
+                    )
+                }
             }
+
+            if (canToggleEpisodeComments) {
+                Box {
+                    val scopeEpisodeLabel = defaultEpisodeTarget?.let { selectedEpisodeLabel(it) }
+                        ?: "S--E--"
+                    CommentSelectorCard(
+                        title = "Scope",
+                        value = if (commentsMode == CommentsMode.EPISODE) {
+                            stringResource(R.string.detail_comments_mode_pick_episode, scopeEpisodeLabel)
+                        } else {
+                            stringResource(R.string.detail_comments_mode_show)
+                        },
+                        selected = true,
+                        minWidth = 132.dp,
+                        maxWidth = 420.dp,
+                        focusRequester = modeFocusRequester,
+                        upFocusRequester = upFocusRequester,
+                        downFocusRequester = commentsTargetFocusRequester,
+                        leftFocusRequester = sourceFocusRequester,
+                        rightFocusRequester = FocusRequester.Cancel,
+                        onClick = {
+                            expandedSelector = CommentsSelectorMenu.SCOPE
+                        }
+                    )
+                    DropdownMenu(
+                        expanded = expandedSelector == CommentsSelectorMenu.SCOPE,
+                        onDismissRequest = {
+                            expandedSelector = null
+                            focusedScopeMenuItem = null
+                        },
+                        modifier = Modifier
+                            .width(340.dp)
+                            .heightIn(max = 240.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        containerColor = NuvioColors.BackgroundCard,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 8.dp,
+                        border = BorderStroke(1.dp, NuvioColors.Border)
+                    ) {
+                        val isShowFocused = focusedScopeMenuItem == "show"
+                        val isShowSelected = commentsMode == CommentsMode.TITLE
+                        val showTextColor = when {
+                            isShowFocused -> NuvioColors.OnSecondary
+                            else -> NuvioColors.TextPrimary
+                        }
+                        val showBackgroundColor = when {
+                            isShowFocused -> NuvioColors.Secondary
+                            isShowSelected -> NuvioColors.FocusBackground
+                            else -> Color.Transparent
+                        }
+                        DropdownMenuItem(
+                            modifier = Modifier
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .background(
+                                    color = showBackgroundColor,
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                .onFocusChanged { state ->
+                                    val hasFocus = state.isFocused || state.hasFocus
+                                    focusedScopeMenuItem = if (hasFocus) "show" else if (focusedScopeMenuItem == "show") null else focusedScopeMenuItem
+                                },
+                            text = { androidx.compose.material3.Text(stringResource(R.string.detail_comments_mode_show), color = showTextColor) },
+                            onClick = {
+                                expandedSelector = null
+                                focusedScopeMenuItem = null
+                                onCommentsModeSelected(CommentsMode.TITLE)
+                            },
+                            colors = MenuDefaults.itemColors(
+                                textColor = showTextColor,
+                                disabledTextColor = NuvioColors.TextDisabled
+                            )
+                        )
+                        val isPickFocused = focusedScopeMenuItem == "pick_episode"
+                        val isPickSelected = commentsMode == CommentsMode.EPISODE
+                        val pickTextColor = when {
+                            isPickFocused -> NuvioColors.OnSecondary
+                            else -> NuvioColors.TextPrimary
+                        }
+                        val pickBackgroundColor = when {
+                            isPickFocused -> NuvioColors.Secondary
+                            isPickSelected -> NuvioColors.FocusBackground
+                            else -> Color.Transparent
+                        }
+                        DropdownMenuItem(
+                            modifier = Modifier
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .background(
+                                    color = pickBackgroundColor,
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                .onFocusChanged { state ->
+                                    val hasFocus = state.isFocused || state.hasFocus
+                                    focusedScopeMenuItem = if (hasFocus) "pick_episode" else if (focusedScopeMenuItem == "pick_episode") null else focusedScopeMenuItem
+                                },
+                            text = { androidx.compose.material3.Text(stringResource(R.string.detail_comments_mode_pick_episode, scopeEpisodeLabel), color = pickTextColor) },
+                            onClick = {
+                                expandedSelector = null
+                                focusedScopeMenuItem = null
+                                showEpisodePicker = true
+                            },
+                            colors = MenuDefaults.itemColors(
+                                textColor = pickTextColor,
+                                disabledTextColor = NuvioColors.TextDisabled
+                            )
+                        )
+                    }
+                }
+            }
+
         }
         Spacer(modifier = Modifier.height(10.dp))
 
@@ -390,7 +575,7 @@ fun CommentsSection(
                                                 }
                                             } else {
                                                 Modifier.focusProperties {
-                                                    up = resolvedGoogleSearchFocusRequester
+                                                    up = controlsFocusRequester
                                                 }
                                             }
                                         )
@@ -413,27 +598,36 @@ fun CommentsSection(
                         style = MaterialTheme.typography.bodyMedium,
                         color = NuvioColors.TextSecondary
                     )
-                    Button(
-                        onClick = onRetry,
-                        modifier = Modifier
-                            .focusRequester(firstItemFocusRequester)
-                            .then(
-                                if (canToggleEpisodeComments) {
-                                    Modifier.focusProperties {
-                                        up = controlsFocusRequester
-                                    }
-                                } else {
-                                    Modifier.focusProperties {
-                                        up = resolvedGoogleSearchFocusRequester
-                                    }
-                                }
-                            ),
-                        colors = ButtonDefaults.colors(
-                            containerColor = NuvioColors.BackgroundCard,
-                            contentColor = NuvioColors.TextPrimary
-                        )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(stringResource(R.string.action_retry))
+                        Button(
+                            onClick = onRetry,
+                            modifier = Modifier
+                                .focusRequester(firstItemFocusRequester)
+                                .focusProperties {
+                                    up = controlsFocusRequester
+                                },
+                            colors = ButtonDefaults.colors(
+                                containerColor = NuvioColors.BackgroundCard,
+                                contentColor = NuvioColors.TextPrimary
+                            )
+                        ) {
+                            Text(stringResource(R.string.action_retry))
+                        }
+                        Button(
+                            onClick = openGoogleSearch,
+                            modifier = Modifier.focusProperties {
+                                up = controlsFocusRequester
+                            },
+                            colors = ButtonDefaults.colors(
+                                containerColor = NuvioColors.BackgroundCard,
+                                contentColor = NuvioColors.TextPrimary
+                            )
+                        ) {
+                            Text(stringResource(R.string.detail_comments_search_google_external))
+                        }
                     }
                 }
             }
@@ -448,6 +642,22 @@ fun CommentsSection(
                         style = MaterialTheme.typography.bodyMedium,
                         color = NuvioColors.TextSecondary
                     )
+                    Button(
+                        onClick = openGoogleSearch,
+                        modifier = Modifier
+                            .focusRequester(firstItemFocusRequester)
+                            .then(
+                                Modifier.focusProperties {
+                                    up = controlsFocusRequester
+                                }
+                            ),
+                        colors = ButtonDefaults.colors(
+                            containerColor = NuvioColors.BackgroundCard,
+                            contentColor = NuvioColors.TextPrimary
+                        )
+                    ) {
+                        Text(stringResource(R.string.detail_comments_search_google_external))
+                    }
                 }
             }
 
@@ -476,7 +686,7 @@ fun CommentsSection(
                                         }
                                     } else {
                                         Modifier.focusProperties {
-                                            up = resolvedGoogleSearchFocusRequester
+                                            up = controlsFocusRequester
                                         }
                                     }
                                 )
@@ -503,7 +713,7 @@ fun CommentsSection(
             seasons = availableSeasons,
             episodes = pickerEpisodes,
             season = pickerSeason ?: pickerDefaultSeason,
-            selectedEpisodeId = selectedEpisode?.id,
+            selectedEpisodeId = selectedEpisode?.id ?: defaultEpisodeTarget?.id,
             onDismiss = { showEpisodePicker = false },
             onSeasonSelected = { pickerSeason = it },
             onEpisodeSelected = {
@@ -540,6 +750,11 @@ private fun selectedEpisodeLabel(video: Video): String {
     val season = video.season ?: 0
     val episode = video.episode ?: 0
     return "S${season.toString().padStart(2, '0')}E${episode.toString().padStart(2, '0')}"
+}
+
+private enum class CommentsSelectorMenu {
+    SOURCE,
+    SCOPE
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -676,9 +891,14 @@ private fun EpisodeCommentPickerDialog(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun CommentModeButton(
-    text: String,
+private fun CommentSelectorCard(
+    title: String,
+    value: String,
     selected: Boolean,
+    showIndicator: Boolean = true,
+    width: Dp? = null,
+    minWidth: Dp = 132.dp,
+    maxWidth: Dp = 360.dp,
     focusRequester: FocusRequester,
     upFocusRequester: FocusRequester? = null,
     downFocusRequester: FocusRequester? = null,
@@ -686,9 +906,21 @@ private fun CommentModeButton(
     rightFocusRequester: FocusRequester? = null,
     onClick: () -> Unit
 ) {
+    var isFocused by remember { mutableStateOf(false) }
+
     Button(
         onClick = onClick,
         modifier = Modifier
+            .then(
+                if (width != null) {
+                    Modifier.width(width)
+                } else {
+                    Modifier
+                        .wrapContentWidth()
+                        .widthIn(min = minWidth, max = maxWidth)
+                }
+            )
+            .height(42.dp)
             .focusRequester(focusRequester)
             .focusProperties {
                 if (upFocusRequester != null) {
@@ -703,13 +935,55 @@ private fun CommentModeButton(
                 if (rightFocusRequester != null) {
                     right = rightFocusRequester
                 }
+            }
+            .onFocusChanged { state ->
+                isFocused = state.isFocused
             },
+        scale = ButtonDefaults.scale(
+            focusedScale = 1f,
+            pressedScale = 1f
+        ),
         colors = ButtonDefaults.colors(
-            containerColor = if (selected) NuvioColors.Secondary else NuvioColors.BackgroundCard,
-            contentColor = if (selected) NuvioColors.OnSecondary else NuvioColors.TextPrimary
+            containerColor = if (selected) NuvioColors.SurfaceVariant else NuvioColors.BackgroundCard,
+            focusedContainerColor = NuvioColors.Secondary,
+            contentColor = NuvioColors.TextPrimary,
+            focusedContentColor = NuvioColors.OnSecondary
         )
     ) {
-        Text(text)
+        Row(
+            modifier = Modifier.wrapContentWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isFocused) NuvioColors.OnSecondary.copy(alpha = 0.9f) else NuvioColors.TextSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = ":",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isFocused) NuvioColors.OnSecondary.copy(alpha = 0.9f) else NuvioColors.TextSecondary
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isFocused) NuvioColors.OnSecondary else NuvioColors.TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (showIndicator) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = if (isFocused) NuvioColors.OnSecondary.copy(alpha = 0.9f) else NuvioColors.TextSecondary,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
     }
 }
 

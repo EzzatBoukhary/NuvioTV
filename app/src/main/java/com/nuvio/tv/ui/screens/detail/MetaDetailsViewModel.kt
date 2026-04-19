@@ -1410,6 +1410,15 @@ class MetaDetailsViewModel @Inject constructor(
             }
             ?.let { return it }
 
+        _uiState.value.watchedEpisodes
+            .maxWithOrNull(compareBy<Pair<Int, Int>>({ it.first }, { it.second }))
+            ?.let { latestWatched ->
+                allEpisodes.firstOrNull { episode ->
+                    episode.season == latestWatched.first && episode.episode == latestWatched.second
+                }
+            }
+            ?.let { return it }
+
         val nextToWatch = _uiState.value.nextToWatch
         nextToWatch?.nextVideoId
             ?.let { nextVideoId ->
