@@ -1568,7 +1568,7 @@ private fun MetaDetailsContent(
                                     title = if (hasPeopleTabs) "" else strTabCast,
                                     leadingCast = directorWriterMembers,
                                     upFocusRequester = if (hasPeopleTabs) castTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester,
-                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else commentsSelectedSourceFocusRequester,
+                                    downFocusRequester = commentsSelectedSourceFocusRequester,
                                     sectionFocusRequester = castSectionFocusRequester,
                                     restorePersonId = if (pendingRestoreType == RestoreTarget.CAST_MEMBER) pendingRestoreCastPersonId else null,
                                     restoreFocusToken = if (pendingRestoreType == RestoreTarget.CAST_MEMBER) restoreFocusToken else 0,
@@ -1593,7 +1593,7 @@ private fun MetaDetailsContent(
                                     items = moreLikeThis,
                                     sourceLabel = moreLikeThisSourceLabel,
                                     upFocusRequester = if (hasPeopleTabs) moreLikeTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester,
-                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else commentsSelectedSourceFocusRequester,
+                                    downFocusRequester = commentsSelectedSourceFocusRequester,
                                     sectionFocusRequester = moreLikeSectionFocusRequester,
                                     restoreItemId = if (pendingRestoreType == RestoreTarget.MORE_LIKE_THIS) pendingRestoreMoreLikeItemId else null,
                                     restoreFocusToken = if (pendingRestoreType == RestoreTarget.MORE_LIKE_THIS) restoreFocusToken else 0,
@@ -1611,7 +1611,7 @@ private fun MetaDetailsContent(
                                 CollectionSection(
                                     items = collection,
                                     upFocusRequester = if (hasPeopleTabs) collectionTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester,
-                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else commentsSelectedSourceFocusRequester,
+                                    downFocusRequester = commentsSelectedSourceFocusRequester,
                                     sectionFocusRequester = collectionSectionFocusRequester,
                                     restoreItemId = if (pendingRestoreType == RestoreTarget.COLLECTION) pendingRestoreCollectionItemId else null,
                                     restoreFocusToken = if (pendingRestoreType == RestoreTarget.COLLECTION) restoreFocusToken else 0,
@@ -1637,7 +1637,7 @@ private fun MetaDetailsContent(
                                     } else {
                                         seasonDownFocusRequester ?: heroPlayFocusRequester
                                     },
-                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else commentsSelectedSourceFocusRequester,
+                                    downFocusRequester = commentsSelectedSourceFocusRequester,
                                     firstItemFocusRequester = ratingsContentFocusRequester,
                                     modifier = Modifier.heightIn(min = if (!hasItemsBelow) castSectionHeight else 0.dp)
                                 )

@@ -229,7 +229,7 @@ fun CommentsSection(
         }
     }
 
-    LaunchedEffect(commentsMode, selectedEpisode?.id) {
+    LaunchedEffect(commentsMode, selectedEpisode?.id, commentsSource) {
         lastFocusedCommentId = null
         if (listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0) {
             listState.scrollToItem(0)
@@ -238,11 +238,7 @@ fun CommentsSection(
 
     LaunchedEffect(entryFocusToken) {
         if (entryFocusToken > 0) {
-            if (canToggleEpisodeComments) {
-                controlsFocusRequester.requestFocusAfterFrames()
-            } else {
-                sourceFocusRequester.requestFocusAfterFrames()
-            }
+            sourceFocusRequester.requestFocusAfterFrames()
             onEntryFocusHandled()
         }
     }
@@ -273,7 +269,8 @@ fun CommentsSection(
         Spacer(modifier = Modifier.height(12.dp))
         Row(
             modifier = Modifier
-                .padding(horizontal = 48.dp),
+                .padding(horizontal = 48.dp)
+                .focusRestorer(sourceFocusRequester),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
