@@ -1664,6 +1664,8 @@ private fun MetaDetailsContent(
                         episodeModeFocusRequester = commentsEpisodeModeFocusRequester,
                         selectedEpisode = commentsEpisodeTarget,
                         allEpisodes = meta.videos.filter { it.season != null && it.episode != null },
+                        watchedEpisodes = watchedEpisodes,
+                        nextToWatch = nextToWatch,
                         selectedSeason = selectedSeason,
                         availableSeasons = seasons,
                         isLoading = isCommentsLoading,
