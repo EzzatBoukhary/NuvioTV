@@ -162,13 +162,22 @@ internal suspend fun HomeViewModel.loadAllCatalogsPipeline(
     heroItemOrder = emptyList()
 
     try {
+        rebuildCatalogOrder(addons)
+
         if (addons.isEmpty()) {
             catalogsLoadInProgress = false
-            _uiState.update { it.copy(isLoading = false, error = appContext.getString(R.string.home_error_no_addons)) }
+            if (hasCatalogOrderEntries()) {
+                scheduleUpdateCatalogRows()
+            } else {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = appContext.getString(R.string.home_error_no_addons)
+                    )
+                }
+            }
             return
         }
-
-        rebuildCatalogOrder(addons)
 
         // Hero has its own catalog sources (heroCatalogKeys) configured
         // independently in Layout Settings.  When the user has explicitly

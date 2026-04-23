@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.data.local.CollectionsDataStore
 import com.nuvio.tv.data.local.ValidationResult
 import com.nuvio.tv.domain.model.Collection
+import com.nuvio.tv.domain.model.CollectionPresets
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +24,8 @@ enum class ImportMode { PASTE, FILE, URL }
 data class CollectionManagementUiState(
     val collections: List<Collection> = emptyList(),
     val isLoading: Boolean = true,
+    val missingPresetCount: Int = 0,
+    val isInstallingPresets: Boolean = false,
     val showImportDialog: Boolean = false,
     val importText: String = "",
     val importError: String? = null,
@@ -48,9 +51,24 @@ class CollectionManagementViewModel @Inject constructor(
         viewModelScope.launch {
             collectionsDataStore.collections.collectLatest { collections ->
                 _uiState.update {
-                    it.copy(collections = collections, isLoading = false)
+                    it.copy(
+                        collections = collections,
+                        isLoading = false,
+                        missingPresetCount = CollectionPresets.missingPresetIds(collections).size,
+                        isInstallingPresets = false
+                    )
                 }
             }
+        }
+    }
+
+    fun installMissingPresets() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isInstallingPresets = true) }
+            runCatching {
+                collectionsDataStore.addMissingCollections(CollectionPresets.defaults())
+            }
+            _uiState.update { it.copy(isInstallingPresets = false) }
         }
     }
 

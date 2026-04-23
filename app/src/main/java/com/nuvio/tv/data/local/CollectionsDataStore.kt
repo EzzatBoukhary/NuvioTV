@@ -65,6 +65,28 @@ class CollectionsDataStore @Inject constructor(
         }
     }
 
+    suspend fun addMissingCollections(candidates: List<Collection>): Int {
+        if (candidates.isEmpty()) return 0
+        var added = 0
+        store().edit { prefs ->
+            val current = parseCollections(prefs[collectionsKey]).toMutableList()
+            val existingIds = current.asSequence().map { it.id }.toHashSet()
+            candidates.forEach { candidate ->
+                if (existingIds.add(candidate.id)) {
+                    current.add(candidate)
+                    added += 1
+                }
+            }
+
+            if (current.isEmpty()) {
+                prefs.remove(collectionsKey)
+            } else {
+                prefs[collectionsKey] = gson.toJson(current.map { it.toSerializable() })
+            }
+        }
+        return added
+    }
+
     suspend fun updateCollection(collection: Collection) {
         store().edit { prefs ->
             val current = parseCollections(prefs[collectionsKey]).toMutableList()

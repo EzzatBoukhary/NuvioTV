@@ -3,6 +3,7 @@ package com.nuvio.tv.core.sync
 import android.util.Log
 import com.nuvio.tv.core.auth.AuthManager
 import com.nuvio.tv.core.profile.ProfileManager
+import com.nuvio.tv.core.tmdb.PresetArtworkService
 import com.nuvio.tv.data.local.CollectionsDataStore
 import com.nuvio.tv.data.remote.supabase.SupabaseCollectionBlob
 import io.github.jan.supabase.postgrest.Postgrest
@@ -31,7 +32,8 @@ class CollectionSyncService @Inject constructor(
     private val postgrest: Postgrest,
     private val authManager: AuthManager,
     private val collectionsDataStore: CollectionsDataStore,
-    private val profileManager: ProfileManager
+    private val profileManager: ProfileManager,
+    private val presetArtworkService: PresetArtworkService
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -127,6 +129,10 @@ class CollectionSyncService @Inject constructor(
             isSyncingFromRemote = true
             try {
                 collectionsDataStore.setCollections(remoteCollections)
+                val enrichedCollections = presetArtworkService.normalizeAndEnrich(remoteCollections)
+                if (enrichedCollections != remoteCollections) {
+                    collectionsDataStore.setCollections(enrichedCollections)
+                }
             } finally {
                 isSyncingFromRemote = false
             }

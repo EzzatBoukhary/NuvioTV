@@ -15,6 +15,7 @@ import com.nuvio.tv.domain.model.FocusedPosterTrailerPlaybackTarget
 import com.nuvio.tv.domain.model.FolderViewMode
 import com.nuvio.tv.domain.model.HomeLayout
 import com.nuvio.tv.domain.model.MetaPreview
+import com.nuvio.tv.domain.model.TMDB_PRESET_ADDON_ID
 import com.nuvio.tv.domain.model.skipStep
 import com.nuvio.tv.domain.model.supportsExtra
 import com.nuvio.tv.domain.repository.AddonRepository
@@ -27,6 +28,7 @@ import com.nuvio.tv.ui.screens.home.ModernHomePresentationInput
 import com.nuvio.tv.ui.screens.home.buildModernHomePresentation
 import com.nuvio.tv.ui.screens.home.homeItemStatusKey
 import com.nuvio.tv.domain.repository.CatalogRepository
+import com.nuvio.tv.core.tmdb.TmdbPresetCatalogService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -99,6 +101,7 @@ class FolderDetailViewModel @Inject constructor(
     private val watchedSeriesStateHolder: com.nuvio.tv.data.local.WatchedSeriesStateHolder,
     private val tmdbService: com.nuvio.tv.core.tmdb.TmdbService,
     private val tmdbMetadataService: com.nuvio.tv.core.tmdb.TmdbMetadataService,
+    private val tmdbPresetCatalogService: TmdbPresetCatalogService,
     private val tmdbSettingsDataStore: com.nuvio.tv.data.local.TmdbSettingsDataStore,
     private val mdbListRepository: com.nuvio.tv.data.repository.MDBListRepository,
     private val mdbListSettingsDataStore: com.nuvio.tv.data.local.MDBListSettingsDataStore,
@@ -399,6 +402,45 @@ class FolderDetailViewModel @Inject constructor(
 
     private fun loadCatalogForTab(tabIndex: Int, source: CollectionCatalogSource) {
         viewModelScope.launch {
+            if (source.addonId == TMDB_PRESET_ADDON_ID) {
+                runCatching {
+                    val language = tmdbSettingsDataStore.settings.first().language
+                    tmdbPresetCatalogService.loadCatalog(
+                        source = source,
+                        page = 1,
+                        language = language
+                    )
+                }.onSuccess { row ->
+                    _uiState.update { state ->
+                        val tabs = state.tabs.toMutableList()
+                        if (tabIndex < tabs.size) {
+                            tabs[tabIndex] = tabs[tabIndex].copy(
+                                catalogRow = row,
+                                isLoading = false,
+                                error = null
+                            )
+                        }
+                        state.copy(tabs = tabs)
+                    }
+                    rebuildAllTab()
+                    rebuildFollowLayoutState()
+                }.onFailure { error ->
+                    _uiState.update { state ->
+                        val tabs = state.tabs.toMutableList()
+                        if (tabIndex < tabs.size) {
+                            tabs[tabIndex] = tabs[tabIndex].copy(
+                                isLoading = false,
+                                error = error.message ?: "Failed to load preset"
+                            )
+                        }
+                        state.copy(tabs = tabs)
+                    }
+                    rebuildAllTab()
+                    rebuildFollowLayoutState()
+                }
+                return@launch
+            }
+
             val addons = addonRepository.getInstalledAddons().first()
             val addon = addons.find { it.id == source.addonId }
 
@@ -511,6 +553,52 @@ class FolderDetailViewModel @Inject constructor(
         rebuildFollowLayoutState()
 
         viewModelScope.launch {
+            if (row.addonId == TMDB_PRESET_ADDON_ID) {
+                runCatching {
+                    val language = tmdbSettingsDataStore.settings.first().language
+                    tmdbPresetCatalogService.loadCatalog(
+                        source = CollectionCatalogSource(
+                            addonId = row.addonId,
+                            type = row.apiType,
+                            catalogId = row.catalogId
+                        ),
+                        page = row.currentPage + 1,
+                        language = language
+                    )
+                }.onSuccess { loadedRow ->
+                    _uiState.update { s ->
+                        val currentTab = s.tabs.getOrNull(tabIndex)
+                        val currentRow = currentTab?.catalogRow ?: return@update s
+                        val existingIds = currentRow.items.map { "${it.apiType}:${it.id}" }.toHashSet()
+                        val newItems = loadedRow.items.filter { "${it.apiType}:${it.id}" !in existingIds }
+                        val mergedItems = currentRow.items + newItems
+                        val hasMore = if (newItems.isEmpty()) false else loadedRow.hasMore
+
+                        val tabs = s.tabs.toMutableList()
+                        tabs[tabIndex] = tabs[tabIndex].copy(
+                            catalogRow = loadedRow.copy(
+                                items = mergedItems,
+                                hasMore = hasMore,
+                                isLoading = false
+                            )
+                        )
+                        s.copy(tabs = tabs)
+                    }
+                    rebuildAllTab()
+                    rebuildFollowLayoutState()
+                }.onFailure {
+                    _uiState.update { s ->
+                        val currentRow = s.tabs.getOrNull(tabIndex)?.catalogRow ?: return@update s
+                        val tabs = s.tabs.toMutableList()
+                        tabs[tabIndex] = tabs[tabIndex].copy(
+                            catalogRow = currentRow.copy(isLoading = false)
+                        )
+                        s.copy(tabs = tabs)
+                    }
+                }
+                return@launch
+            }
+
             val nextSkip = (row.currentPage + 1) * row.skipStep
 
             catalogRepository.getCatalog(
@@ -651,6 +739,15 @@ class FolderDetailViewModel @Inject constructor(
     }
 
     private fun buildTabLabels(source: CollectionCatalogSource, catalogName: String?): Pair<String, String> {
+        if (source.addonId == TMDB_PRESET_ADDON_ID) {
+            val typeLabel = when (source.type.lowercase()) {
+                "movie" -> "Movies"
+                "series" -> "Series"
+                else -> source.type.replaceFirstChar { it.uppercase() }
+            }
+            return tmdbPresetCatalogService.describeCatalog(source) to typeLabel
+        }
+
         val typeLabel = when (source.type.lowercase()) {
             "movie" -> "Movies"
             "series" -> "Series"

@@ -147,11 +147,30 @@ interface TmdbApi {
         @Query("api_key") apiKey: String
     ): Response<TmdbCompanyDetailsResponse>
 
+    @GET("watch/providers/movie")
+    suspend fun getMovieWatchProviders(
+        @Query("api_key") apiKey: String,
+        @Query("watch_region") watchRegion: String? = null
+    ): Response<TmdbWatchProvidersResponse>
+
+    @GET("watch/providers/tv")
+    suspend fun getTvWatchProviders(
+        @Query("api_key") apiKey: String,
+        @Query("watch_region") watchRegion: String? = null
+    ): Response<TmdbWatchProvidersResponse>
+
     @GET("network/{network_id}")
     suspend fun getNetworkDetails(
         @Path("network_id") networkId: Int,
         @Query("api_key") apiKey: String
     ): Response<TmdbNetworkDetailsResponse>
+
+    @GET("search/keyword")
+    suspend fun searchKeywords(
+        @Query("api_key") apiKey: String,
+        @Query("query") query: String,
+        @Query("page") page: Int = 1
+    ): Response<TmdbKeywordSearchResponse>
 
     @GET("discover/movie")
     suspend fun discoverMovies(
@@ -160,6 +179,13 @@ interface TmdbApi {
         @Query("page") page: Int = 1,
         @Query("sort_by") sortBy: String? = null,
         @Query("with_companies") withCompanies: String? = null,
+        @Query("with_genres") withGenres: String? = null,
+        @Query("with_watch_providers") withWatchProviders: String? = null,
+        @Query("watch_region") watchRegion: String? = null,
+        @Query("with_cast") withCast: String? = null,
+        @Query("with_crew") withCrew: String? = null,
+        @Query("with_keywords") withKeywords: String? = null,
+        @Query("primary_release_date.gte") releaseDateGte: String? = null,
         @Query("release_date.lte") releaseDateLte: String? = null,
         @Query("vote_count.gte") voteCountGte: Int? = null
     ): Response<TmdbDiscoverResponse>
@@ -172,6 +198,13 @@ interface TmdbApi {
         @Query("sort_by") sortBy: String? = null,
         @Query("with_companies") withCompanies: String? = null,
         @Query("with_networks") withNetworks: String? = null,
+        @Query("with_genres") withGenres: String? = null,
+        @Query("with_watch_providers") withWatchProviders: String? = null,
+        @Query("watch_region") watchRegion: String? = null,
+        @Query("with_cast") withCast: String? = null,
+        @Query("with_crew") withCrew: String? = null,
+        @Query("with_keywords") withKeywords: String? = null,
+        @Query("first_air_date.gte") firstAirDateGte: String? = null,
         @Query("first_air_date.lte") firstAirDateLte: String? = null,
         @Query("vote_count.gte") voteCountGte: Int? = null
     ): Response<TmdbDiscoverResponse>
@@ -219,6 +252,20 @@ data class TmdbFindResult(
 )
 
 @JsonClass(generateAdapter = true)
+data class TmdbKeywordSearchResponse(
+    @Json(name = "page") val page: Int? = null,
+    @Json(name = "results") val results: List<TmdbKeywordResult> = emptyList(),
+    @Json(name = "total_pages") val totalPages: Int? = null,
+    @Json(name = "total_results") val totalResults: Int? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class TmdbKeywordResult(
+    @Json(name = "id") val id: Int,
+    @Json(name = "name") val name: String? = null
+)
+
+@JsonClass(generateAdapter = true)
 data class TmdbExternalIdsResponse(
     @Json(name = "id") val id: Int,
     @Json(name = "imdb_id") val imdbId: String? = null,
@@ -260,6 +307,7 @@ data class TmdbDetailsResponse(
     @Json(name = "runtime") val runtime: Int? = null,
     @Json(name = "episode_run_time") val episodeRunTime: List<Int>? = null,
     @Json(name = "vote_average") val voteAverage: Double? = null,
+    @Json(name = "popularity") val popularity: Double? = null,
     @Json(name = "production_companies") val productionCompanies: List<TmdbCompany>? = null,
     @Json(name = "networks") val networks: List<TmdbNetwork>? = null,
     @Json(name = "production_countries") val productionCountries: List<TmdbCountry>? = null,
@@ -534,4 +582,17 @@ data class TmdbNetworkDetailsResponse(
     @Json(name = "homepage") val homepage: String? = null,
     @Json(name = "logo_path") val logoPath: String? = null,
     @Json(name = "origin_country") val originCountry: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class TmdbWatchProvidersResponse(
+    @Json(name = "results") val results: List<TmdbWatchProvider>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class TmdbWatchProvider(
+    @Json(name = "display_priority") val displayPriority: Int? = null,
+    @Json(name = "logo_path") val logoPath: String? = null,
+    @Json(name = "provider_id") val providerId: Int,
+    @Json(name = "provider_name") val providerName: String? = null
 )

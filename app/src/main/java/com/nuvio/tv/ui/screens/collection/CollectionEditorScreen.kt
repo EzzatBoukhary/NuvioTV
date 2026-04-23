@@ -815,7 +815,7 @@ private fun FolderEditorContent(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .clip(RoundedCornerShape(12.dp)),
-                                    contentScale = ContentScale.FillBounds
+                                    contentScale = ContentScale.Crop
                                 )
                             }
                         }

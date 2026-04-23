@@ -7,9 +7,11 @@ import com.nuvio.tv.data.local.CollectionsDataStore
 import com.nuvio.tv.domain.model.Collection
 import com.nuvio.tv.domain.model.CollectionCatalogSource
 import com.nuvio.tv.domain.model.CollectionFolder
+import com.nuvio.tv.domain.model.CollectionPresets
 import com.nuvio.tv.domain.model.FolderViewMode
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.repository.AddonRepository
+import com.nuvio.tv.core.tmdb.TmdbPresetCatalogService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,7 +54,8 @@ data class AvailableCatalog(
 class CollectionEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val collectionsDataStore: CollectionsDataStore,
-    private val addonRepository: AddonRepository
+    private val addonRepository: AddonRepository,
+    private val tmdbPresetCatalogService: TmdbPresetCatalogService
 ) : ViewModel() {
 
     private val collectionIdArg: String = savedStateHandle["collectionId"] ?: ""
@@ -67,7 +70,7 @@ class CollectionEditorViewModel @Inject constructor(
     private fun loadData() {
         viewModelScope.launch {
             val addons = addonRepository.getInstalledAddons().first()
-            val availableCatalogs = addons.flatMap { addon ->
+            val addonCatalogs = addons.flatMap { addon ->
                 addon.catalogs
                     .filter { catalog ->
                         catalog.extra.none { extra -> extra.isRequired && !extra.name.equals("genre", ignoreCase = true) }
@@ -85,6 +88,24 @@ class CollectionEditorViewModel @Inject constructor(
                         )
                     }
             }
+            val presetCatalogs = CollectionPresets.defaults()
+                .flatMap { collection -> collection.folders }
+                .flatMap { folder -> folder.catalogSources }
+                .distinctBy { source -> source.addonId + "|" + source.type + "|" + source.catalogId }
+                .map { source ->
+                    AvailableCatalog(
+                        addonId = source.addonId,
+                        addonName = "TMDB Presets",
+                        type = source.type,
+                        catalogId = source.catalogId,
+                        catalogName = tmdbPresetCatalogService.describeCatalog(source),
+                        genreOptions = emptyList(),
+                        genreRequired = false
+                    )
+                }
+
+            val availableCatalogs = (addonCatalogs + presetCatalogs)
+                .distinctBy { catalog -> catalog.addonId + "|" + catalog.type + "|" + catalog.catalogId }
 
             if (collectionIdArg.isNotBlank()) {
                 val collections = collectionsDataStore.collections.first()

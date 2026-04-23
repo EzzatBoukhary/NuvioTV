@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.core.player.StreamAutoPlayPolicy
+import com.nuvio.tv.core.tmdb.PresetArtworkService
 import com.nuvio.tv.core.tmdb.TmdbMetadataService
 import com.nuvio.tv.core.tmdb.TmdbService
 import com.nuvio.tv.data.local.AuthSessionNoticeDataStore
@@ -23,6 +24,7 @@ import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.Collection
+import com.nuvio.tv.domain.model.CollectionPresets
 import com.nuvio.tv.domain.model.LibraryEntryInput
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.MetaPreview
@@ -69,6 +71,7 @@ class HomeViewModel @Inject constructor(
     internal val authSessionNoticeDataStore: AuthSessionNoticeDataStore,
     internal val tmdbService: TmdbService,
     internal val tmdbMetadataService: TmdbMetadataService,
+    private val presetArtworkService: PresetArtworkService,
     internal val mdbListRepository: MDBListRepository,
     internal val trailerService: TrailerService,
     internal val watchedItemsPreferences: WatchedItemsPreferences,
@@ -195,6 +198,14 @@ class HomeViewModel @Inject constructor(
         observeStartupAuthNotice()
         viewModelScope.launch {
             profileManager.activeProfileReady.first { it }
+            runCatching { collectionsDataStore.addMissingCollections(CollectionPresets.defaults()) }
+            runCatching {
+                val currentCollections = collectionsDataStore.collections.first()
+                val enrichedCollections = presetArtworkService.normalizeAndEnrich(currentCollections)
+                if (enrichedCollections != currentCollections) {
+                    collectionsDataStore.setCollections(enrichedCollections)
+                }
+            }
             watchedSeriesStateHolder.loadFromDisk()
             observeLayoutPreferences()
             observeModernHomePresentation()

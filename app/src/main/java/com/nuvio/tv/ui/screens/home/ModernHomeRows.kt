@@ -793,7 +793,7 @@ private fun ModernCarouselCard(
         else -> baseImageUrl ?: payload.focusGifUrl
     }
     val imageContentScale = when (item.payload) {
-        is ModernPayload.CollectionFolder -> ContentScale.FillBounds
+        is ModernPayload.CollectionFolder -> ContentScale.Crop
         else -> ContentScale.Crop
     }
     // Keep decode target stable across expand/collapse to avoid recreating image requests/painters

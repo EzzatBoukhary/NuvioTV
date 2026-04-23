@@ -171,6 +171,20 @@ fun CollectionManagementScreen(
                 try { newButtonFocusRequester.requestFocus() } catch (_: Exception) {}
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (uiState.missingPresetCount > 0) {
+                    NuvioButton(onClick = { viewModel.installMissingPresets() }) {
+                        Text(
+                            if (uiState.isInstallingPresets) {
+                                stringResource(R.string.collections_presets_installing)
+                            } else {
+                                stringResource(
+                                    R.string.collections_presets_install,
+                                    uiState.missingPresetCount
+                                )
+                            }
+                        )
+                    }
+                }
                 if (uiState.collections.isNotEmpty()) {
                     NuvioButton(onClick = {
                         scope.launch {
