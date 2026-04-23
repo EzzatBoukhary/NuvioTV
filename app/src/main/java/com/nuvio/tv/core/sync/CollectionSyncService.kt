@@ -128,11 +128,8 @@ class CollectionSyncService @Inject constructor(
 
             isSyncingFromRemote = true
             try {
-                collectionsDataStore.setCollections(remoteCollections)
                 val enrichedCollections = presetArtworkService.normalizeAndEnrich(remoteCollections)
-                if (enrichedCollections != remoteCollections) {
-                    collectionsDataStore.setCollections(enrichedCollections)
-                }
+                collectionsDataStore.setCollections(enrichedCollections)
             } finally {
                 isSyncingFromRemote = false
             }

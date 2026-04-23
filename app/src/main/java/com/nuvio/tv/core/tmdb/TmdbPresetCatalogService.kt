@@ -235,21 +235,9 @@ class TmdbPresetCatalogService @Inject constructor(
             language = normalizedLanguage
         ).body()?.parts.orEmpty()
 
-        val items = coroutineScope {
-            parts.map { part ->
-                async {
-                    val popularity = runCatching {
-                        tmdbApi.getMovieDetails(part.id, BuildConfig.TMDB_API_KEY, normalizedLanguage).body()?.popularity ?: 0.0
-                    }.getOrDefault(0.0)
-                    popularity to part
-                }
-            }.awaitAll()
-                .sortedWith(
-                    compareByDescending<Pair<Double, TmdbCollectionPart>> { it.first }
-                        .thenByDescending { it.second.releaseDate ?: "" }
-                )
-                .mapNotNull { (_, part) -> mapCollectionPart(part) }
-        }
+        val items = parts
+            .sortedByDescending { it.releaseDate ?: "" }
+            .mapNotNull { part -> mapCollectionPart(part) }
 
         return CatalogRow(
             addonId = TMDB_PRESET_ADDON_ID,
