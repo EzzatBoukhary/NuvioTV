@@ -78,7 +78,7 @@ private val CellWidth = 46.dp
 private val CellHeight = 34.dp
 private val RowHeaderWidth = 60.dp
 private val SideRailWidth = 148.dp
-private val GridContentPadding = 16.dp
+private val GridContentPadding = 10.dp
 private const val AverageRowLabel = "Avg"
 
 private val ColorAwesome = Color(0xFF186A3B)
@@ -177,7 +177,7 @@ private fun OverlayHeaderBar(
             .clip(OverlayShape)
             .background(Color.Black.copy(alpha = 0.24f))
             .border(1.dp, Color.White.copy(alpha = 0.08f), OverlayShape)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
         content = content
@@ -209,8 +209,8 @@ private fun EpisodeRatingsOverlayMessageDialog(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 28.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 OverlayHeaderBar {
                     Text(
@@ -243,7 +243,7 @@ private fun EpisodeRatingsOverlayMessageDialog(
                         .clip(OverlayShape)
                         .background(NuvioColors.Surface.copy(alpha = 0.60f))
                         .border(1.dp, Color.White.copy(alpha = 0.10f), OverlayShape)
-                        .padding(16.dp),
+                        .padding(12.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -302,8 +302,8 @@ private fun EpisodeRatingsOverlay(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 28.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 OverlayHeaderBar {
                     Text(
@@ -704,11 +704,11 @@ private fun RatingsGridPanel(
         modifier = modifier
             .background(NuvioColors.Surface.copy(alpha = 0.60f), PanelShape)
             .border(1.dp, Color.White.copy(alpha = 0.10f), PanelShape)
-            .padding(12.dp)
+            .padding(8.dp)
     ) {
         Row(
             modifier = Modifier
-                .padding(start = GridContentPadding, end = GridContentPadding, top = GridContentPadding, bottom = 4.dp),
+                .padding(start = GridContentPadding, end = GridContentPadding, top = GridContentPadding, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             HeaderBadge(
