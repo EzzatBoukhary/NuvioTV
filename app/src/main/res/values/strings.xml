@@ -1331,6 +1331,20 @@
     <string name="ratings_unavailable">Episode ratings are unavailable.</string>
     <string name="ratings_load_error">Unable to load episode ratings.</string>
     <string name="ratings_season_summary">Season %1$d - %2$d episodes</string>
+    <string name="ratings_scale_title">Rating Scale</string>
+    <string name="ratings_legend_awesome">Awesome (9.0+)</string>
+    <string name="ratings_legend_great">Great (8.0-8.9)</string>
+    <string name="ratings_legend_good">Good (7.5-7.9)</string>
+    <string name="ratings_legend_regular">Regular (7.0-7.4)</string>
+    <string name="ratings_legend_bad">Bad (6.0-6.9)</string>
+    <string name="ratings_legend_garbage">Garbage (&lt;6.0)</string>
+    <string name="ratings_warning_current_season">Current season (ratings may change)</string>
+    <string name="ratings_average_label">Season Avg</string>
+    <string name="ratings_open_overlay">Open ratings grid</string>
+    <string name="ratings_close_overlay">Close</string>
+    <string name="ratings_overlay_summary">%1$d seasons - up to %2$d episodes</string>
+    <string name="ratings_layout_episodes_across">Episodes Across</string>
+    <string name="ratings_layout_seasons_across">Seasons Across</string>
 
     <!-- SearchDiscoverSection -->
     <string name="discover_title">Discover</string>

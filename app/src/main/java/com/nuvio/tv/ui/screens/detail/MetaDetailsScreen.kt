@@ -1745,6 +1745,7 @@ private fun MetaDetailsContent(
 
                             PeopleSectionTab.RATINGS -> {
                                 EpisodeRatingsSection(
+                                    meta = meta,
                                     episodes = meta.videos,
                                     ratings = episodeImdbRatings,
                                     isLoading = isEpisodeRatingsLoading,
