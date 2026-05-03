@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -46,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.Border
@@ -55,6 +57,8 @@ import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Switch
+import androidx.tv.material3.SwitchDefaults
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.Meta
@@ -69,8 +73,9 @@ private val CellShape = RoundedCornerShape(4.dp)
 private val OverlayShape = RoundedCornerShape(12.dp)
 private val CellWidth = 46.dp
 private val CellHeight = 34.dp
-private val RowHeaderWidth = 92.dp
+private val RowHeaderWidth = 60.dp
 private val SideRailWidth = 148.dp
+private const val AverageRowLabel = "Avg"
 
 private val ColorAwesome = Color(0xFF186A3B)
 private val ColorGreat = Color(0xFF28B463)
@@ -103,8 +108,18 @@ fun EpisodeRatingsSection(
     val chartData = remember(episodes, ratings) {
         buildEpisodeRatingsChartData(episodes = episodes, ratings = ratings)
     }
-    var showOverlay by rememberSaveable(meta.id) { mutableStateOf(false) }
-    var layoutMode by rememberSaveable(meta.id) { mutableStateOf(RatingsLayoutMode.SEASONS_ACROSS) }
+    var layoutMode by rememberSaveable(meta.id) { mutableStateOf(RatingsLayoutMode.EPISODES_ACROSS) }
+    var showDialog by rememberSaveable(meta.id) { mutableStateOf(false) }
+
+    if (showDialog) {
+        EpisodeRatingsOverlay(
+            meta = meta,
+            chartData = chartData,
+            layoutMode = layoutMode,
+            onLayoutModeChanged = { layoutMode = it },
+            onDismiss = { showDialog = false }
+        )
+    }
 
     Column(
         modifier = modifier
@@ -125,92 +140,48 @@ fun EpisodeRatingsSection(
             error != null -> MessageText(error)
             chartData.displaySeasonNumbers.isEmpty() -> MessageText(stringResource(R.string.ratings_unavailable))
             else -> {
-                RatingsLauncherCard(
-                    chartData = chartData,
+                RatingsLauncherButton(
+                    onClick = { showDialog = true },
                     modifier = Modifier.padding(horizontal = 48.dp, vertical = 8.dp),
+                    firstItemFocusRequester = firstItemFocusRequester,
                     upFocusRequester = upFocusRequester,
-                    downFocusRequester = downFocusRequester,
-                    focusRequester = firstItemFocusRequester,
-                    onOpen = { showOverlay = true }
+                    downFocusRequester = downFocusRequester
                 )
             }
         }
-    }
-
-    if (showOverlay) {
-        EpisodeRatingsOverlay(
-            meta = meta,
-            chartData = chartData,
-            layoutMode = layoutMode,
-            onLayoutModeChanged = { layoutMode = it },
-            onDismiss = { showOverlay = false }
-        )
     }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun RatingsLauncherCard(
-    chartData: EpisodeRatingsChartData,
+private fun RatingsLauncherButton(
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    upFocusRequester: FocusRequester?,
-    downFocusRequester: FocusRequester?,
-    focusRequester: FocusRequester?,
-    onOpen: () -> Unit
+    upFocusRequester: FocusRequester? = null,
+    downFocusRequester: FocusRequester? = null,
+    firstItemFocusRequester: FocusRequester? = null
 ) {
-    Column(
+    Button(
+        onClick = onClick,
         modifier = modifier
-            .clip(PanelShape)
-            .background(NuvioColors.Surface.copy(alpha = 0.76f))
-            .border(1.dp, Color.White.copy(alpha = 0.12f), PanelShape)
-            .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .fillMaxWidth()
+            .let {
+                if (firstItemFocusRequester != null) it.focusRequester(firstItemFocusRequester) else it
+            }
+            .focusProperties {
+                if (upFocusRequester != null) up = upFocusRequester
+                if (downFocusRequester != null) down = downFocusRequester
+            },
+        colors = ButtonDefaults.colors(
+            containerColor = NuvioColors.Surface.copy(alpha = 0.76f),
+            focusedContainerColor = NuvioColors.Secondary
+        )
     ) {
         Text(
-            text = stringResource(
-                R.string.ratings_overlay_summary,
-                chartData.displaySeasonNumbers.size,
-                chartData.maxEpisodeNumber
-            ),
-            style = MaterialTheme.typography.bodyMedium,
-            color = NuvioColors.TextSecondary
+            text = stringResource(R.string.ratings_view_chart),
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+            color = NuvioColors.TextPrimary
         )
-
-        if (chartData.seasonAverages.isNotEmpty()) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.ratings_average_label),
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                    color = NuvioColors.TextTertiary
-                )
-                chartData.seasonAverages.forEach { average ->
-                    Text(
-                        text = "S${average.seasonNumber} ${String.format("%.1f", average.average)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = NuvioColors.TextSecondary
-                    )
-                }
-            }
-        }
-
-        Button(
-            onClick = onOpen,
-            modifier = Modifier
-                .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
-                .focusProperties {
-                    if (upFocusRequester != null) up = upFocusRequester
-                    if (downFocusRequester != null) down = downFocusRequester
-                },
-            colors = ButtonDefaults.colors(
-                containerColor = NuvioColors.FocusBackground,
-                focusedContainerColor = NuvioColors.FocusBackground
-            )
-        ) {
-            Text(text = stringResource(R.string.ratings_open_overlay))
-        }
     }
 }
 
@@ -249,6 +220,7 @@ private fun EpisodeRatingsOverlay(
                 }
         }
     }
+    val firstCellFocusRequester = focusRequesters.values.firstOrNull()
     val closeRequester = remember { FocusRequester() }
     val toggleRequester = remember { FocusRequester() }
 
@@ -276,106 +248,304 @@ private fun EpisodeRatingsOverlay(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(32.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = stringResource(
-                            R.string.ratings_overlay_summary,
-                            chartData.displaySeasonNumbers.size,
-                            chartData.maxEpisodeNumber
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = NuvioColors.TextTertiary
+                        text = meta.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = NuvioColors.TextPrimary,
+                        modifier = Modifier.weight(1f)
                     )
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        InvertedToggleButton(
-                            isInverted = layoutMode == RatingsLayoutMode.EPISODES_ACROSS,
-                            modifier = Modifier.focusRequester(toggleRequester),
-                            onClick = {
-                                onLayoutModeChanged(
-                                    if (layoutMode == RatingsLayoutMode.SEASONS_ACROSS) {
-                                        RatingsLayoutMode.EPISODES_ACROSS
+                    RatingLegendStrip(modifier = Modifier.weight(1f))
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        var toggleFocused by rememberSaveable { mutableStateOf(false) }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.focusRequester(toggleRequester)
+                                .focusProperties { 
+                                    down = firstCellFocusRequester ?: Cancel
+                                }
+                                .then(
+                                    if (toggleFocused) {
+                                        Modifier.border(
+                                            width = 2.dp,
+                                            color = NuvioColors.FocusRing,
+                                            shape = RoundedCornerShape(4.dp)
+                                        )
                                     } else {
-                                        RatingsLayoutMode.SEASONS_ACROSS
+                                        Modifier
                                     }
                                 )
-                            }
-                        )
+                                .padding(4.dp)
+                                .onFocusChanged { toggleFocused = it.isFocused }
+                        ) {
+                            Text(
+                                text = "Layout:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = NuvioColors.TextSecondary
+                            )
+                            Switch(
+                                checked = layoutMode == RatingsLayoutMode.EPISODES_ACROSS,
+                                onCheckedChange = { checked ->
+                                    onLayoutModeChanged(
+                                        if (checked) {
+                                            RatingsLayoutMode.EPISODES_ACROSS
+                                        } else {
+                                            RatingsLayoutMode.SEASONS_ACROSS
+                                        }
+                                    )
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = NuvioColors.Secondary,
+                                    checkedTrackColor = NuvioColors.Secondary.copy(alpha = 0.3f),
+                                    uncheckedThumbColor = NuvioColors.TextSecondary,
+                                    uncheckedTrackColor = NuvioColors.BackgroundCard
+                                )
+                            )
+                        }
                         Button(
                             onClick = onDismiss,
-                            modifier = Modifier.focusRequester(closeRequester),
+                            modifier = Modifier
+                                .focusRequester(closeRequester)
+                                .focusProperties { 
+                                    up = toggleRequester
+                                    down = Cancel
+                                },
                             colors = ButtonDefaults.colors(
                                 containerColor = NuvioColors.BackgroundCard,
-                                focusedContainerColor = NuvioColors.BackgroundCard
+                                focusedContainerColor = NuvioColors.FocusBackground,
+                                contentColor = NuvioColors.TextPrimary,
+                                focusedContentColor = NuvioColors.Primary
                             )
                         ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = null,
-                                tint = NuvioColors.TextPrimary,
-                                modifier = Modifier.size(18.dp)
+                            Text(
+                                text = stringResource(R.string.ratings_close_overlay),
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = stringResource(R.string.ratings_close_overlay))
                         }
                     }
                 }
 
-                Row(
+                RatingsGridPanel(
+                    displayModel = displayModel,
+                    layoutMode = layoutMode,
+                    focusedEpisodeId = focusedEpisodeId,
+                    onEpisodeFocused = { focusedEpisodeId = it },
+                    focusRequesters = focusRequesters,
+                    upFocusRequester = toggleRequester,
+                    downFocusRequester = closeRequester,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    RatingsGridPanel(
-                        displayModel = displayModel,
-                        focusedEpisodeId = focusedEpisodeId,
-                        onEpisodeFocused = { focusedEpisodeId = it },
-                        focusRequesters = focusRequesters,
-                        upFocusRequester = toggleRequester,
-                        downFocusRequester = closeRequester,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    Column(
-                        modifier = Modifier.width(SideRailWidth),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        RatingLegendPanel(modifier = Modifier.fillMaxWidth())
-                    }
-                }
+                        .weight(1f)
+                )
             }
         }
     }
 }
 
+@Composable
+private fun RatingLegendStrip(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        listOf(
+            LegendItem(color = ColorAwesome, label = "9+"),
+            LegendItem(color = ColorGreat, label = "8+"),
+            LegendItem(color = ColorGood, label = "7.5+"),
+            LegendItem(color = ColorRegular, label = "7+"),
+            LegendItem(color = ColorBad, label = "6+"),
+            LegendItem(color = ColorGarbage, label = "<6")
+        ).forEachIndexed { index, item ->
+            if (index > 0) Spacer(modifier = Modifier.width(8.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(item.color!!)
+                )
+                Text(
+                    text = item.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = NuvioColors.TextSecondary
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.AccessTime,
+                contentDescription = null,
+                tint = ColorCurrentSeason,
+                modifier = Modifier
+                    .size(6.dp)
+                    .border(0.5.dp, ColorCurrentSeason, RoundedCornerShape(1.dp))
+            )
+            Text(
+                text = "Current",
+                style = MaterialTheme.typography.labelSmall,
+                color = NuvioColors.TextSecondary
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.AccessTime,
+                contentDescription = null,
+                tint = Color(0xFF90CAF9),
+                modifier = Modifier
+                    .size(6.dp)
+                    .border(0.5.dp, Color(0xFF90CAF9), RoundedCornerShape(1.dp))
+            )
+            Text(
+                text = "Unreleased",
+                style = MaterialTheme.typography.labelSmall,
+                color = NuvioColors.TextSecondary
+            )
+        }
+    }
+}
+
+@Composable
+private fun HeaderBadge(label: String) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+        color = NuvioColors.TextPrimary,
+        textAlign = TextAlign.Center
+    )
+}
+
+@Composable
+private fun AverageBadge(average: Double) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            text = String.format("%.1f", average),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = NuvioColors.TextSecondary
+        )
+        Box(
+            modifier = Modifier
+                .width(16.dp)
+                .height(3.dp)
+                .clip(RoundedCornerShape(99.dp))
+                .background(getRatingColor(average))
+        )
+    }
+}
+
+@Composable
+private fun AverageBadgeHorizontal(average: Double) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = String.format("%.1f", average),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = NuvioColors.TextSecondary
+        )
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(12.dp)
+                .clip(RoundedCornerShape(99.dp))
+                .background(getRatingColor(average))
+        )
+    }
+}
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun InvertedToggleButton(
-    isInverted: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier,
-        colors = ButtonDefaults.colors(
-            containerColor = if (isInverted) NuvioColors.FocusBackground else NuvioColors.BackgroundCard,
-            focusedContainerColor = if (isInverted) NuvioColors.FocusBackground else NuvioColors.BackgroundCard
-        )
+private fun SummaryCell(cell: RatingsDisplayCell, isEpisodesAcross: Boolean = false) {
+    Box(
+        modifier = Modifier
+            .size(width = CellWidth, height = CellHeight)
+            .background(Color.Transparent),
+        contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.SwapHoriz,
-            contentDescription = null,
-            tint = NuvioColors.TextPrimary,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(text = stringResource(R.string.ratings_layout_inverted))
+        if (isEpisodesAcross) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 4.dp)
+            ) {
+                Text(
+                    text = cell.ratingLabel,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = NuvioColors.TextSecondary,
+                    maxLines = 1
+                )
+                Box(
+                    modifier = Modifier
+                        .width(2.dp)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(99.dp))
+                        .background(cell.backgroundColor)
+                )
+            }
+        } else {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 2.dp)
+            ) {
+                Text(
+                    text = cell.ratingLabel,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = NuvioColors.TextSecondary,
+                    maxLines = 1
+                )
+                Box(
+                    modifier = Modifier
+                        .width(12.dp)
+                        .height(2.dp)
+                        .clip(RoundedCornerShape(99.dp))
+                        .background(cell.backgroundColor)
+                )
+            }
+        }
     }
+}
+
+private fun List<RatingsDisplayCell>.findHorizontalNeighbor(
+    startIndex: Int,
+    offset: Int
+): RatingsDisplayCell? {
+    var targetIndex = startIndex + offset
+    while (targetIndex in indices) {
+        val cell = this[targetIndex]
+        if (cell.episodeId != null) return cell
+        targetIndex += offset
+    }
+    return null
 }
 
 @Composable
@@ -394,25 +564,17 @@ private fun RatingLegendPanel(modifier: Modifier = Modifier) {
             color = NuvioColors.TextPrimary
         )
         val items = listOf(
-            LegendItem(ColorAwesome, stringResource(R.string.ratings_legend_awesome)),
-            LegendItem(ColorGreat, stringResource(R.string.ratings_legend_great)),
-            LegendItem(ColorGood, stringResource(R.string.ratings_legend_good)),
-            LegendItem(ColorRegular, stringResource(R.string.ratings_legend_regular)),
-            LegendItem(ColorBad, stringResource(R.string.ratings_legend_bad)),
-            LegendItem(ColorGarbage, stringResource(R.string.ratings_legend_garbage))
+            LegendItem(color = ColorAwesome, label = stringResource(R.string.ratings_legend_awesome)),
+            LegendItem(color = ColorGreat, label = stringResource(R.string.ratings_legend_great)),
+            LegendItem(color = ColorGood, label = stringResource(R.string.ratings_legend_good)),
+            LegendItem(color = ColorRegular, label = stringResource(R.string.ratings_legend_regular)),
+            LegendItem(color = ColorBad, label = stringResource(R.string.ratings_legend_bad)),
+            LegendItem(color = ColorGarbage, label = stringResource(R.string.ratings_legend_garbage))
         )
         items.forEach { item -> LegendRow(item) }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.AccessTime, contentDescription = null, tint = ColorCurrentSeason, modifier = Modifier.size(14.dp))
-            Text(
-                text = stringResource(R.string.ratings_warning_current_season),
-                style = MaterialTheme.typography.labelSmall,
-                color = NuvioColors.TextSecondary
-            )
-        }
+        Spacer(modifier = Modifier.height(4.dp))
+        LegendRow(LegendItem(iconColor = ColorCurrentSeason, label = stringResource(R.string.ratings_warning_current_season)))
+        LegendRow(LegendItem(iconColor = Color(0xFF90CAF9), label = stringResource(R.string.ratings_warning_upcoming_season)))
     }
 }
 
@@ -423,12 +585,21 @@ private fun LegendRow(item: LegendItem, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .clip(RoundedCornerShape(3.dp))
-                .background(item.color)
-        )
+        if (item.color != null) {
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(item.color)
+            )
+        } else if (item.iconColor != null) {
+            Icon(
+                imageVector = Icons.Default.AccessTime,
+                contentDescription = null,
+                tint = item.iconColor,
+                modifier = Modifier.size(14.dp)
+            )
+        }
         Text(
             text = item.label,
             style = MaterialTheme.typography.labelSmall,
@@ -441,6 +612,7 @@ private fun LegendRow(item: LegendItem, modifier: Modifier = Modifier) {
 @Composable
 private fun RatingsGridPanel(
     displayModel: RatingsDisplayModel,
+    layoutMode: RatingsLayoutMode,
     focusedEpisodeId: String?,
     onEpisodeFocused: (String) -> Unit,
     focusRequesters: Map<String, FocusRequester>,
@@ -456,19 +628,20 @@ private fun RatingsGridPanel(
             .clip(PanelShape)
             .background(NuvioColors.Surface.copy(alpha = 0.60f))
             .border(1.dp, Color.White.copy(alpha = 0.10f), PanelShape)
-            .padding(8.dp)
+            .padding(12.dp)
     ) {
         Row(modifier = Modifier.padding(bottom = 4.dp)) {
             Box(
                 modifier = Modifier
                     .width(RowHeaderWidth)
                     .height(CellHeight),
-                contentAlignment = Alignment.CenterStart
+                contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = displayModel.leadingHeader,
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                    color = NuvioColors.TextPrimary
+                    color = NuvioColors.TextPrimary,
+                    textAlign = TextAlign.Center
                 )
             }
 
@@ -483,7 +656,7 @@ private fun RatingsGridPanel(
                             .height(CellHeight),
                         contentAlignment = Alignment.Center
                     ) {
-                        HeaderBadge(label = header.label, average = header.average)
+                        HeaderBadge(label = header.label)
                     }
                 }
             }
@@ -496,10 +669,12 @@ private fun RatingsGridPanel(
                     .verticalScroll(verticalScrollState)
                     .padding(end = 4.dp)
             ) {
-                displayModel.rows.forEach { row ->
+                displayModel.rows.forEachIndexed { rowIndex, row ->
                     Box(
-                        modifier = Modifier.height(CellHeight),
-                        contentAlignment = Alignment.CenterStart
+                        modifier = Modifier
+                            .height(CellHeight)
+                            .padding(bottom = if (rowIndex == displayModel.rows.lastIndex) 0.dp else 4.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -508,7 +683,8 @@ private fun RatingsGridPanel(
                             Text(
                                 text = row.label,
                                 style = MaterialTheme.typography.labelLarge,
-                                color = NuvioColors.TextSecondary
+                                color = NuvioColors.TextSecondary,
+                                textAlign = TextAlign.Center
                             )
                             row.average?.let { average ->
                                 AverageBadge(average = average)
@@ -526,95 +702,111 @@ private fun RatingsGridPanel(
                 Column(modifier = Modifier.verticalScroll(verticalScrollState)) {
                     displayModel.rows.forEachIndexed { rowIndex, row ->
                         Row(
-                            modifier = Modifier.padding(bottom = if (rowIndex == displayModel.rows.lastIndex) 0.dp else 4.dp),
+                            modifier = Modifier
+                                .height(CellHeight)
+                                .padding(bottom = if (rowIndex == displayModel.rows.lastIndex) 0.dp else 4.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             row.cells.forEachIndexed { columnIndex, cell ->
-                                if (cell.episodeId == null) {
-                                    Box(modifier = Modifier.size(width = CellWidth, height = CellHeight))
-                                    return@forEachIndexed
-                                }
-
-                                val episodeId = cell.episodeId
-                                val bringIntoViewRequester = remember(episodeId) { BringIntoViewRequester() }
-                                val upCell = displayModel.findNeighbor(rowIndex, columnIndex, -1)
-                                val downCell = displayModel.findNeighbor(rowIndex, columnIndex, 1)
-                                val leftCell = row.cells.findHorizontalNeighbor(columnIndex, -1)
-                                val rightCell = row.cells.findHorizontalNeighbor(columnIndex, 1)
-
-                                Card(
-                                    onClick = {},
-                                    modifier = Modifier
-                                        .focusRequester(focusRequesters.getValue(episodeId))
-                                        .bringIntoViewRequester(bringIntoViewRequester)
-                                        .focusProperties {
-                                            left = leftCell?.episodeId?.let(focusRequesters::get) ?: Cancel
-                                            right = rightCell?.episodeId?.let(focusRequesters::get) ?: Cancel
-                                            val resolvedUp = upCell?.episodeId?.let(focusRequesters::get) ?: upFocusRequester
-                                            up = resolvedUp ?: Cancel
-                                            val resolvedDown = downCell?.episodeId?.let(focusRequesters::get) ?: downFocusRequester
-                                            down = resolvedDown ?: Cancel
-                                        }
-                                        .onFocusChanged {
-                                            if (it.isFocused) onEpisodeFocused(episodeId)
-                                        },
-                                    shape = CardDefaults.shape(CellShape),
-                                    colors = CardDefaults.colors(
-                                        containerColor = cell.backgroundColor,
-                                        focusedContainerColor = cell.backgroundColor
-                                    ),
-                                    border = CardDefaults.border(
-                                        focusedBorder = Border(
-                                            border = BorderStroke(2.dp, NuvioColors.FocusRing),
-                                            shape = CellShape
-                                        )
-                                    ),
-                                    scale = CardDefaults.scale(focusedScale = 1.03f)
-                                ) {
-                                    if (focusedEpisodeId == episodeId) {
-                                        LaunchedEffect(episodeId) {
-                                            bringIntoViewRequester.bringIntoView()
-                                        }
+                                when {
+                                    cell.state == EpisodeRatingCellState.SUMMARY -> {
+                                        SummaryCell(cell, isEpisodesAcross = layoutMode == RatingsLayoutMode.EPISODES_ACROSS)
                                     }
-                                    Box(
-                                        modifier = Modifier.size(width = CellWidth, height = CellHeight),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        when (cell.state) {
-                                            EpisodeRatingCellState.RATED -> {
-                                                Text(
-                                                    text = cell.ratingLabel,
-                                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                                                    color = if (cell.useDarkText) Color(0xFF1D1D1F) else Color.White
-                                                )
-                                            }
-                                            EpisodeRatingCellState.UNRATED -> {
-                                                Text(
-                                                    text = "—",
-                                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                                                    color = NuvioColors.TextSecondary
-                                                )
-                                            }
-                                            EpisodeRatingCellState.UNAIRED -> {
-                                                Icon(
-                                                    imageVector = Icons.Default.AccessTime,
-                                                    contentDescription = null,
-                                                    tint = NuvioColors.TextSecondary,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                        }
+                                    cell.episodeId == null -> {
+                                        Box(modifier = Modifier.size(width = CellWidth, height = CellHeight))
+                                    }
+                                    else -> {
+                                        val episodeId = cell.episodeId
+                                        val bringIntoViewRequester = remember(episodeId) { BringIntoViewRequester() }
+                                        val upCell = displayModel.findNeighbor(rowIndex, columnIndex, -1)
+                                        val downCell = displayModel.findNeighbor(rowIndex, columnIndex, 1)
+                                        val leftCell = row.cells.findHorizontalNeighbor(columnIndex, -1)
+                                        val rightCell = row.cells.findHorizontalNeighbor(columnIndex, 1)
 
-                                        if (cell.showCurrentSeasonBadge) {
-                                            Icon(
-                                                imageVector = Icons.Default.AccessTime,
-                                                contentDescription = null,
-                                                tint = ColorCurrentSeason,
-                                                modifier = Modifier
-                                                    .align(Alignment.TopEnd)
-                                                    .padding(top = 2.dp, end = 2.dp)
-                                                    .size(12.dp)
-                                            )
+                                        Card(
+                                            onClick = {},
+                                            modifier = Modifier
+                                                .focusRequester(focusRequesters.getValue(episodeId))
+                                                .bringIntoViewRequester(bringIntoViewRequester)
+                                                .focusProperties {
+                                                    left = leftCell?.episodeId?.let(focusRequesters::get) ?: Cancel
+                                                    right = rightCell?.episodeId?.let(focusRequesters::get) ?: Cancel
+                                                    val resolvedUp = if (rowIndex == 0) {
+                                                        upFocusRequester
+                                                    } else {
+                                                        upCell?.episodeId?.let(focusRequesters::get)
+                                                    }
+                                                    up = resolvedUp ?: Cancel
+                                                    val resolvedDown = if (rowIndex == displayModel.rows.lastIndex) {
+                                                        Cancel
+                                                    } else {
+                                                        downCell?.episodeId?.let(focusRequesters::get)
+                                                    }
+                                                    down = resolvedDown ?: Cancel
+                                                }
+                                                .onFocusChanged {
+                                                    if (it.isFocused) onEpisodeFocused(episodeId)
+                                                },
+                                            shape = CardDefaults.shape(CellShape),
+                                            colors = CardDefaults.colors(
+                                                containerColor = cell.backgroundColor,
+                                                focusedContainerColor = cell.backgroundColor
+                                            ),
+                                            border = CardDefaults.border(
+                                                focusedBorder = Border(
+                                                    border = BorderStroke(2.dp, NuvioColors.FocusRing),
+                                                    shape = CellShape
+                                                )
+                                            ),
+                                            scale = CardDefaults.scale(focusedScale = 1.03f)
+                                        ) {
+                                            if (focusedEpisodeId == episodeId) {
+                                                LaunchedEffect(episodeId) {
+                                                    bringIntoViewRequester.bringIntoView()
+                                                }
+                                            }
+                                            Box(
+                                                modifier = Modifier.size(width = CellWidth, height = CellHeight),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                when (cell.state) {
+                                                    EpisodeRatingCellState.RATED -> {
+                                                        Text(
+                                                            text = cell.ratingLabel,
+                                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                                            color = if (cell.useDarkText) Color(0xFF1D1D1F) else Color.White
+                                                        )
+                                                    }
+                                                    EpisodeRatingCellState.UNRATED -> {
+                                                        Text(
+                                                            text = "—",
+                                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                                            color = NuvioColors.TextSecondary
+                                                        )
+                                                    }
+                                                    EpisodeRatingCellState.UNAIRED -> {
+                                                        Icon(
+                                                            imageVector = Icons.Default.AccessTime,
+                                                            contentDescription = null,
+                                                            tint = NuvioColors.TextSecondary,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
+                                                    EpisodeRatingCellState.SUMMARY -> Unit
+                                                }
+
+                                                if (cell.showCurrentSeasonBadge) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.AccessTime,
+                                                        contentDescription = null,
+                                                        tint = ColorCurrentSeason,
+                                                        modifier = Modifier
+                                                            .align(Alignment.TopEnd)
+                                                            .padding(top = 2.dp, end = 2.dp)
+                                                            .size(12.dp)
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -627,68 +819,6 @@ private fun RatingsGridPanel(
     }
 }
 
-@Composable
-private fun HeaderBadge(
-    label: String,
-    average: Double?
-) {
-    if (average == null) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-            color = NuvioColors.TextPrimary,
-            textAlign = TextAlign.Center
-        )
-        return
-    }
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-            color = NuvioColors.TextPrimary,
-            textAlign = TextAlign.Center
-        )
-        AverageBadge(average = average)
-    }
-}
-
-@Composable
-private fun AverageBadge(average: Double) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .width(14.dp)
-                .height(4.dp)
-                .clip(RoundedCornerShape(99.dp))
-                .background(getRatingColor(average))
-        )
-        Text(
-            text = String.format("%.1f", average),
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-            color = NuvioColors.TextSecondary
-        )
-    }
-}
-
-private fun List<RatingsDisplayCell>.findHorizontalNeighbor(
-    startIndex: Int,
-    offset: Int
-): RatingsDisplayCell? {
-    var targetIndex = startIndex + offset
-    while (targetIndex in indices) {
-        val cell = this[targetIndex]
-        if (cell.episodeId != null) return cell
-        targetIndex += offset
-    }
-    return null
-}
 
 internal fun buildEpisodeRatingsChartData(
     episodes: List<Video>,
@@ -735,13 +865,37 @@ internal data class EpisodeRatingsChartData(
     fun toDisplayModel(layoutMode: RatingsLayoutMode): RatingsDisplayModel {
         return when (layoutMode) {
             RatingsLayoutMode.EPISODES_ACROSS -> {
-                val columnHeaders = (1..maxEpisodeNumber).map { RatingsDisplayHeader(label = "E$it") }
+                val columnHeaders = buildList {
+                    add(RatingsDisplayHeader(label = "Avg"))
+                    (1..maxEpisodeNumber).forEach { episodeNumber ->
+                        add(RatingsDisplayHeader(label = "E$episodeNumber"))
+                    }
+                }
                 val rows = displaySeasonNumbers.map { seasonNumber ->
                     RatingsDisplayRow(
                         label = "S$seasonNumber",
-                        average = seasonAverageBySeasonNumber[seasonNumber],
-                        cells = (1..maxEpisodeNumber).map { episodeNumber ->
-                            buildDisplayCell(seasonNumber, episodeNumber)
+                        cells = buildList {
+                            val average = seasonAverageBySeasonNumber[seasonNumber]
+                            add(
+                                if (average == null) {
+                                    RatingsDisplayCell.summary(
+                                        seasonNumber = seasonNumber,
+                                        ratingLabel = "—",
+                                        backgroundColor = ColorMutedCell,
+                                        useDarkText = false
+                                    )
+                                } else {
+                                    RatingsDisplayCell.summary(
+                                        seasonNumber = seasonNumber,
+                                        ratingLabel = String.format("%.1f", average),
+                                        backgroundColor = getRatingColor(average),
+                                        useDarkText = average >= 7.0 && average < 8.0
+                                    )
+                                }
+                            )
+                            (1..maxEpisodeNumber).forEach { episodeNumber ->
+                                add(buildDisplayCell(seasonNumber, episodeNumber))
+                            }
                         }
                     )
                 }
@@ -753,16 +907,25 @@ internal data class EpisodeRatingsChartData(
             }
             RatingsLayoutMode.SEASONS_ACROSS -> {
                 val columnHeaders = displaySeasonNumbers.map { seasonNumber ->
-                    RatingsDisplayHeader(
-                        label = "S$seasonNumber",
-                        average = seasonAverageBySeasonNumber[seasonNumber]
-                    )
+                    RatingsDisplayHeader(label = "S$seasonNumber")
                 }
-                val rows = (1..maxEpisodeNumber).map { episodeNumber ->
-                    RatingsDisplayRow(
-                        label = "E$episodeNumber",
-                        cells = displaySeasonNumbers.map { seasonNumber ->
-                            buildDisplayCell(seasonNumber, episodeNumber)
+                val rows = buildList {
+                    add(
+                        RatingsDisplayRow(
+                            label = AverageRowLabel,
+                            cells = displaySeasonNumbers.map { seasonNumber ->
+                                buildAverageDisplayCell(seasonNumber)
+                            }
+                        )
+                    )
+                    addAll(
+                        (1..maxEpisodeNumber).map { episodeNumber ->
+                            RatingsDisplayRow(
+                                label = "E$episodeNumber",
+                                cells = displaySeasonNumbers.map { seasonNumber ->
+                                    buildDisplayCell(seasonNumber, episodeNumber)
+                                }
+                            )
                         }
                     )
                 }
@@ -772,6 +935,25 @@ internal data class EpisodeRatingsChartData(
                     rows = rows
                 )
             }
+        }
+    }
+
+    private fun buildAverageDisplayCell(seasonNumber: Int): RatingsDisplayCell {
+        val average = seasonAverageBySeasonNumber[seasonNumber]
+        return if (average == null) {
+            RatingsDisplayCell.summary(
+                seasonNumber = seasonNumber,
+                ratingLabel = "—",
+                backgroundColor = ColorMutedCell,
+                useDarkText = false
+            )
+        } else {
+            RatingsDisplayCell.summary(
+                seasonNumber = seasonNumber,
+                ratingLabel = String.format("%.1f", average),
+                backgroundColor = getRatingColor(average),
+                useDarkText = average >= 7.0 && average < 8.0
+            )
         }
     }
 
@@ -806,7 +988,7 @@ internal data class RatingsDisplayModel(
     val signature: String = buildString {
         append(leadingHeader)
         columnHeaders.forEach { header ->
-            append('|').append(header.label).append(':').append(header.average ?: "x")
+            append('|').append(header.label)
         }
         rows.forEach { row ->
             append('#').append(row.label).append(':').append(row.average ?: "x")
@@ -829,8 +1011,7 @@ internal data class RatingsDisplayModel(
 }
 
 internal data class RatingsDisplayHeader(
-    val label: String,
-    val average: Double? = null
+    val label: String
 )
 
 internal data class RatingsDisplayRow(
@@ -847,7 +1028,8 @@ internal data class SeasonAverage(
 internal enum class EpisodeRatingCellState {
     RATED,
     UNRATED,
-    UNAIRED
+    UNAIRED,
+    SUMMARY
 }
 
 internal data class RatingsDisplayCell(
@@ -871,12 +1053,29 @@ internal data class RatingsDisplayCell(
             showCurrentSeasonBadge = false,
             useDarkText = false
         )
+
+        fun summary(
+            seasonNumber: Int,
+            ratingLabel: String,
+            backgroundColor: Color,
+            useDarkText: Boolean
+        ) = RatingsDisplayCell(
+            episodeId = null,
+            seasonNumber = seasonNumber,
+            episodeNumber = 0,
+            ratingLabel = ratingLabel,
+            state = EpisodeRatingCellState.SUMMARY,
+            backgroundColor = backgroundColor,
+            showCurrentSeasonBadge = false,
+            useDarkText = useDarkText
+        )
     }
 }
 
 private data class LegendItem(
-    val color: Color,
-    val label: String
+    val color: Color? = null,
+    val label: String,
+    val iconColor: Color? = null
 )
 
 private fun getRatingColor(rating: Double): Color {

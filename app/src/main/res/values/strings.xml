@@ -1360,11 +1360,13 @@
     <string name="ratings_legend_bad">Bad (6.0-6.9)</string>
     <string name="ratings_legend_garbage">Garbage (&lt;6.0)</string>
     <string name="ratings_warning_current_season">Current season (ratings may change)</string>
+    <string name="ratings_warning_upcoming_season">Upcoming (not yet aired)</string>
     <string name="ratings_average_label">Season Avg</string>
     <string name="ratings_open_overlay">Open ratings grid</string>
     <string name="ratings_close_overlay">Close</string>
+    <string name="ratings_view_chart">View Chart</string>
     <string name="ratings_overlay_summary">%1$d seasons - up to %2$d episodes</string>
-    <string name="ratings_layout_inverted">Inverted</string>
+    <string name="ratings_layout_inverted">Invert layout</string>
 
     <!-- SearchDiscoverSection -->
     <string name="discover_title">Discover</string>

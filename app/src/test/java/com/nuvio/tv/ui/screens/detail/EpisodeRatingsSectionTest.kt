@@ -28,12 +28,12 @@ class EpisodeRatingsSectionTest {
         assertEquals(listOf(1, 2), chart.displaySeasonNumbers)
         assertEquals(3, chart.maxEpisodeNumber)
         assertEquals("Season", display.leadingHeader)
-        assertEquals(listOf("E1", "E2", "E3"), display.columnHeaders.map { it.label })
+        assertEquals(listOf("Avg", "E1", "E2", "E3"), display.columnHeaders.map { it.label })
         assertEquals("S1", display.rows[0].label)
-        assertNotNull(display.rows[0].average)
-        assertEquals(8.4, display.rows[0].average!!, 0.001)
-        assertEquals("s2e3", display.rows[1].cells[2].episodeId)
-        assertEquals("9.3", display.rows[1].cells[2].ratingLabel)
+        assertEquals("8.4", display.rows[0].cells[0].ratingLabel)
+        assertEquals("s1e1", display.rows[0].cells[1].episodeId)
+        assertEquals("s2e3", display.rows[1].cells[3].episodeId)
+        assertEquals("9.3", display.rows[1].cells[3].ratingLabel)
     }
 
     @Test
@@ -52,10 +52,13 @@ class EpisodeRatingsSectionTest {
 
         assertEquals("Episode", display.leadingHeader)
         assertEquals(listOf("S1", "S2"), display.columnHeaders.map { it.label })
-        assertEquals("E1", display.rows[0].label)
-        assertEquals(null, display.rows[0].average)
-        assertEquals("s1e1", display.rows[0].cells[0].episodeId)
-        assertEquals("s2e2", display.rows[1].cells[1].episodeId)
+        assertEquals("Avg", display.rows[0].label)
+        assertEquals(3, display.rows.size)
+        assertEquals(EpisodeRatingCellState.SUMMARY, display.rows[0].cells[0].state)
+        assertEquals("—", display.rows[0].cells[0].ratingLabel)
+        assertEquals("E1", display.rows[1].label)
+        assertEquals("s1e1", display.rows[1].cells[0].episodeId)
+        assertEquals("s2e2", display.rows[2].cells[1].episodeId)
     }
 
     @Test
@@ -77,10 +80,10 @@ class EpisodeRatingsSectionTest {
         assertEquals(7.0, chart.seasonAverages.first { it.seasonNumber == 1 }.average, 0.001)
         assertEquals(9.0, chart.seasonAverages.first { it.seasonNumber == 2 }.average, 0.001)
         val display = chart.toDisplayModel(RatingsLayoutMode.SEASONS_ACROSS)
-        assertNotNull(display.columnHeaders.first { it.label == "S1" }.average)
-        assertNotNull(display.columnHeaders.first { it.label == "S2" }.average)
-        assertEquals(7.0, display.columnHeaders.first { it.label == "S1" }.average!!, 0.001)
-        assertEquals(9.0, display.columnHeaders.first { it.label == "S2" }.average!!, 0.001)
+        assertEquals("Avg", display.rows.first().label)
+        assertEquals(EpisodeRatingCellState.SUMMARY, display.rows.first().cells[0].state)
+        assertEquals("7.0", display.rows.first().cells[0].ratingLabel)
+        assertEquals("9.0", display.rows.first().cells[1].ratingLabel)
         assertNotNull(chart.toDisplayModel(RatingsLayoutMode.EPISODES_ACROSS).firstEpisodeId)
         assertTrue(display.rows.isNotEmpty())
     }
