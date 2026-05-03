@@ -23,7 +23,6 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessTime
@@ -163,28 +162,7 @@ private fun EpisodeRatingsBackdrop(backdropModel: Any?) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.horizontalGradient(
-                    colors = listOf(
-                        Color.Black.copy(alpha = 0.68f),
-                        Color.Black.copy(alpha = 0.24f),
-                        Color.Black.copy(alpha = 0.00f)
-                    )
-                )
-            )
-    )
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color.Black.copy(alpha = 0.04f),
-                        Color.Transparent,
-                        Color.Black.copy(alpha = 0.52f)
-                    )
-                )
-            )
+            .background(Color.Black.copy(alpha = 0.42f))
     )
 }
 
@@ -366,13 +344,13 @@ private fun EpisodeRatingsOverlay(
                                 color = NuvioColors.TextSecondary
                             )
                             Switch(
-                                checked = layoutMode == RatingsLayoutMode.EPISODES_ACROSS,
+                                checked = layoutMode == RatingsLayoutMode.SEASONS_ACROSS,
                                 onCheckedChange = { checked ->
                                     onLayoutModeChanged(
                                         if (checked) {
-                                            RatingsLayoutMode.EPISODES_ACROSS
-                                        } else {
                                             RatingsLayoutMode.SEASONS_ACROSS
+                                        } else {
+                                            RatingsLayoutMode.EPISODES_ACROSS
                                         }
                                     )
                                 },

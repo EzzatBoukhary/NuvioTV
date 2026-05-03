@@ -880,6 +880,7 @@ private fun MetaDetailsContent(
     }
     val selectedSeasonFocusRequester = remember { FocusRequester() }
     val heroPlayFocusRequester = remember { FocusRequester() }
+    val heroRatingsFocusRequester = remember { FocusRequester() }
     val castTabFocusRequester = remember { FocusRequester() }
     val moreLikeTabFocusRequester = remember { FocusRequester() }
     val trailerTabFocusRequester = remember { FocusRequester() }
@@ -897,6 +898,7 @@ private fun MetaDetailsContent(
     var pendingRestoreCollectionItemId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingRestoreCompanyId by rememberSaveable { mutableStateOf<Int?>(null) }
     var restoreFocusToken by rememberSaveable { mutableIntStateOf(0) }
+    var restoreRatingsFocusToken by rememberSaveable { mutableIntStateOf(0) }
     var commentsEntryFocusToken by rememberSaveable { mutableIntStateOf(0) }
     var companyRestoreToken by rememberSaveable { mutableIntStateOf(0) }
     var initialHeroFocusRequested by rememberSaveable(meta.id) { mutableStateOf(false) }
@@ -1513,12 +1515,12 @@ private fun MetaDetailsContent(
                         onTrailerClick = onTrailerButtonClick,
                         ratingsAvailable = isTvShow,
                         onRatingsClick = {
-                            markHeroRestore()
                             showRatingsOverlay = true
                         },
                         hideLogoDuringTrailer = hideLogoDuringTrailer,
                         isTrailerPlaying = isTrailerPlaying,
                         playButtonFocusRequester = heroPlayFocusRequester,
+                        ratingsButtonFocusRequester = heroRatingsFocusRequester,
                         onHeroActionFocused = {
                             android.util.Log.d("DetailFocus", "onHeroActionFocused: scrolling to top, listState.firstVisible=${listState.firstVisibleItemIndex}")
                             if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) {
@@ -1531,10 +1533,14 @@ private fun MetaDetailsContent(
                         },
                         restorePlayFocusToken = (if (pendingRestoreType == RestoreTarget.HERO) restoreFocusToken else 0) +
                                 restorePlayFocusAfterTrailerBackToken,
+                        restoreRatingsFocusToken = restoreRatingsFocusToken,
                         onPlayFocusRestored = {
                             onPlayButtonFocused()
                             initialHeroFocusRequested = true
                             clearPendingRestore()
+                        },
+                        onRatingsFocusRestored = {
+                            initialHeroFocusRequested = true
                         }
                     )
                 }
@@ -1940,7 +1946,10 @@ private fun MetaDetailsContent(
                 ratings = episodeImdbRatings,
                 isLoading = isEpisodeRatingsLoading,
                 error = episodeRatingsError,
-                onDismiss = { showRatingsOverlay = false },
+                onDismiss = {
+                    restoreRatingsFocusToken += 1
+                    showRatingsOverlay = false
+                },
                 backdropModel = backdropRequest
             )
         }

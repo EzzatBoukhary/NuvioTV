@@ -103,9 +103,12 @@ fun HeroContentSection(
     showFullReleaseDate: Boolean = true,
     isTrailerPlaying: Boolean = false,
     playButtonFocusRequester: FocusRequester? = null,
+    ratingsButtonFocusRequester: FocusRequester? = null,
     restorePlayFocusToken: Int = 0,
+    restoreRatingsFocusToken: Int = 0,
     onHeroActionFocused: () -> Unit = {},
-    onPlayFocusRestored: () -> Unit = {}
+    onPlayFocusRestored: () -> Unit = {},
+    onRatingsFocusRestored: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isSeriesApi = remember(meta.apiType) {
@@ -286,7 +289,13 @@ fun HeroContentSection(
                             RatingsActionButton(
                                 contentDescription = stringResource(R.string.ratings_open_overlay),
                                 onClick = onRatingsClick,
-                                onFocused = onHeroActionFocused
+                                onFocused = onHeroActionFocused,
+                                focusRequester = ratingsButtonFocusRequester,
+                                restoreFocusToken = restoreRatingsFocusToken,
+                                onFocusRestored = {
+                                    onHeroActionFocused()
+                                    onRatingsFocusRestored()
+                                }
                             )
                         }
 
@@ -350,17 +359,35 @@ fun HeroContentSection(
 private fun RatingsActionButton(
     contentDescription: String,
     onClick: () -> Unit,
-    onFocused: () -> Unit = {}
+    onFocused: () -> Unit = {},
+    focusRequester: FocusRequester? = null,
+    restoreFocusToken: Int = 0,
+    onFocusRestored: () -> Unit = {}
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    var pendingRestore by remember { mutableStateOf(false) }
+
+    LaunchedEffect(restoreFocusToken) {
+        if (restoreFocusToken > 0 && focusRequester != null) {
+            pendingRestore = true
+            focusRequester.requestFocusAfterFrames()
+        }
+    }
 
     IconButton(
         onClick = onClick,
         modifier = Modifier
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .size(48.dp)
             .onFocusChanged { state ->
                 isFocused = state.isFocused
-                if (state.isFocused) onFocused()
+                if (state.isFocused) {
+                    onFocused()
+                    if (pendingRestore) {
+                        pendingRestore = false
+                        onFocusRestored()
+                    }
+                }
             }
             .focusProperties { up = FocusRequester.Cancel },
         colors = IconButtonDefaults.colors(
