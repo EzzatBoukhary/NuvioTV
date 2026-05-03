@@ -9,7 +9,7 @@ import org.junit.Test
 class EpisodeRatingsSectionTest {
 
     @Test
-    fun `buildEpisodeRatingsChartData supports inverted tv layout by default data shape`() {
+    fun `episodes across layout remains available for inverted mode`() {
         val chart = buildEpisodeRatingsChartData(
             episodes = listOf(
                 episode(id = "s1e1", season = 1, episode = 1),
@@ -28,8 +28,10 @@ class EpisodeRatingsSectionTest {
         assertEquals(listOf(1, 2), chart.displaySeasonNumbers)
         assertEquals(3, chart.maxEpisodeNumber)
         assertEquals("Season", display.leadingHeader)
-        assertEquals(listOf("E1", "E2", "E3"), display.columnLabels)
+        assertEquals(listOf("E1", "E2", "E3"), display.columnHeaders.map { it.label })
         assertEquals("S1", display.rows[0].label)
+        assertNotNull(display.rows[0].average)
+        assertEquals(8.4, display.rows[0].average!!, 0.001)
         assertEquals("s2e3", display.rows[1].cells[2].episodeId)
         assertEquals("9.3", display.rows[1].cells[2].ratingLabel)
     }
@@ -49,8 +51,9 @@ class EpisodeRatingsSectionTest {
         val display = chart.toDisplayModel(RatingsLayoutMode.SEASONS_ACROSS)
 
         assertEquals("Episode", display.leadingHeader)
-        assertEquals(listOf("S1", "S2"), display.columnLabels)
+        assertEquals(listOf("S1", "S2"), display.columnHeaders.map { it.label })
         assertEquals("E1", display.rows[0].label)
+        assertEquals(null, display.rows[0].average)
         assertEquals("s1e1", display.rows[0].cells[0].episodeId)
         assertEquals("s2e2", display.rows[1].cells[1].episodeId)
     }
@@ -73,8 +76,13 @@ class EpisodeRatingsSectionTest {
         assertEquals(2, chart.seasonAverages.size)
         assertEquals(7.0, chart.seasonAverages.first { it.seasonNumber == 1 }.average, 0.001)
         assertEquals(9.0, chart.seasonAverages.first { it.seasonNumber == 2 }.average, 0.001)
+        val display = chart.toDisplayModel(RatingsLayoutMode.SEASONS_ACROSS)
+        assertNotNull(display.columnHeaders.first { it.label == "S1" }.average)
+        assertNotNull(display.columnHeaders.first { it.label == "S2" }.average)
+        assertEquals(7.0, display.columnHeaders.first { it.label == "S1" }.average!!, 0.001)
+        assertEquals(9.0, display.columnHeaders.first { it.label == "S2" }.average!!, 0.001)
         assertNotNull(chart.toDisplayModel(RatingsLayoutMode.EPISODES_ACROSS).firstEpisodeId)
-        assertTrue(chart.toDisplayModel(RatingsLayoutMode.SEASONS_ACROSS).rows.isNotEmpty())
+        assertTrue(display.rows.isNotEmpty())
     }
 
     private fun episode(id: String, season: Int?, episode: Int?) = Video(

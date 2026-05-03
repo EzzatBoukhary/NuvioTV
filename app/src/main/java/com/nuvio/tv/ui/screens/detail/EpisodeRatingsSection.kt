@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.FocusRequester.Companion.Cancel
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -68,8 +69,8 @@ private val CellShape = RoundedCornerShape(4.dp)
 private val OverlayShape = RoundedCornerShape(12.dp)
 private val CellWidth = 46.dp
 private val CellHeight = 34.dp
-private val RowHeaderWidth = 58.dp
-private val SideRailWidth = 164.dp
+private val RowHeaderWidth = 92.dp
+private val SideRailWidth = 148.dp
 
 private val ColorAwesome = Color(0xFF186A3B)
 private val ColorGreat = Color(0xFF28B463)
@@ -103,7 +104,7 @@ fun EpisodeRatingsSection(
         buildEpisodeRatingsChartData(episodes = episodes, ratings = ratings)
     }
     var showOverlay by rememberSaveable(meta.id) { mutableStateOf(false) }
-    var layoutMode by rememberSaveable(meta.id) { mutableStateOf(RatingsLayoutMode.EPISODES_ACROSS) }
+    var layoutMode by rememberSaveable(meta.id) { mutableStateOf(RatingsLayoutMode.SEASONS_ACROSS) }
 
     Column(
         modifier = modifier
@@ -290,16 +291,18 @@ private fun EpisodeRatingsOverlay(
                     )
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        LayoutToggleButton(
-                            label = stringResource(R.string.ratings_layout_episodes_across),
-                            isSelected = layoutMode == RatingsLayoutMode.EPISODES_ACROSS,
+                        InvertedToggleButton(
+                            isInverted = layoutMode == RatingsLayoutMode.EPISODES_ACROSS,
                             modifier = Modifier.focusRequester(toggleRequester),
-                            onClick = { onLayoutModeChanged(RatingsLayoutMode.EPISODES_ACROSS) }
-                        )
-                        LayoutToggleButton(
-                            label = stringResource(R.string.ratings_layout_seasons_across),
-                            isSelected = layoutMode == RatingsLayoutMode.SEASONS_ACROSS,
-                            onClick = { onLayoutModeChanged(RatingsLayoutMode.SEASONS_ACROSS) }
+                            onClick = {
+                                onLayoutModeChanged(
+                                    if (layoutMode == RatingsLayoutMode.SEASONS_ACROSS) {
+                                        RatingsLayoutMode.EPISODES_ACROSS
+                                    } else {
+                                        RatingsLayoutMode.SEASONS_ACROSS
+                                    }
+                                )
+                            }
                         )
                         Button(
                             onClick = onDismiss,
@@ -342,10 +345,6 @@ private fun EpisodeRatingsOverlay(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         RatingLegendPanel(modifier = Modifier.fillMaxWidth())
-                        SeasonAveragePanel(
-                            averages = chartData.seasonAverages,
-                            modifier = Modifier.fillMaxWidth()
-                        )
                     }
                 }
             }
@@ -355,9 +354,8 @@ private fun EpisodeRatingsOverlay(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun LayoutToggleButton(
-    label: String,
-    isSelected: Boolean,
+private fun InvertedToggleButton(
+    isInverted: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -365,8 +363,8 @@ private fun LayoutToggleButton(
         onClick = onClick,
         modifier = modifier,
         colors = ButtonDefaults.colors(
-            containerColor = if (isSelected) NuvioColors.FocusBackground else NuvioColors.BackgroundCard,
-            focusedContainerColor = if (isSelected) NuvioColors.FocusBackground else NuvioColors.BackgroundCard
+            containerColor = if (isInverted) NuvioColors.FocusBackground else NuvioColors.BackgroundCard,
+            focusedContainerColor = if (isInverted) NuvioColors.FocusBackground else NuvioColors.BackgroundCard
         )
     ) {
         Icon(
@@ -376,7 +374,7 @@ private fun LayoutToggleButton(
             modifier = Modifier.size(18.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))
-        Text(text = label)
+        Text(text = stringResource(R.string.ratings_layout_inverted))
     }
 }
 
@@ -439,47 +437,6 @@ private fun LegendRow(item: LegendItem, modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-private fun SeasonAveragePanel(
-    averages: List<SeasonAverage>,
-    modifier: Modifier = Modifier
-) {
-    if (averages.isEmpty()) return
-
-    Column(
-        modifier = modifier
-            .clip(PanelShape)
-            .background(NuvioColors.Surface.copy(alpha = 0.58f))
-            .border(1.dp, Color.White.copy(alpha = 0.10f), PanelShape)
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.ratings_average_label),
-            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-            color = NuvioColors.TextPrimary
-        )
-        averages.forEach { average ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "S${average.seasonNumber}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NuvioColors.TextSecondary
-                )
-                Text(
-                    text = String.format("%.1f", average.average),
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                    color = NuvioColors.TextPrimary
-                )
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun RatingsGridPanel(
@@ -519,19 +476,14 @@ private fun RatingsGridPanel(
                 modifier = Modifier.horizontalScroll(horizontalScrollState),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                displayModel.columnLabels.forEach { label ->
+                displayModel.columnHeaders.forEach { header ->
                     Box(
                         modifier = Modifier
                             .width(CellWidth)
                             .height(CellHeight),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = NuvioColors.TextPrimary,
-                            textAlign = TextAlign.Center
-                        )
+                        HeaderBadge(label = header.label, average = header.average)
                     }
                 }
             }
@@ -549,11 +501,19 @@ private fun RatingsGridPanel(
                         modifier = Modifier.height(CellHeight),
                         contentAlignment = Alignment.CenterStart
                     ) {
-                        Text(
-                            text = row.label,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = NuvioColors.TextSecondary
-                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = row.label,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = NuvioColors.TextSecondary
+                            )
+                            row.average?.let { average ->
+                                AverageBadge(average = average)
+                            }
+                        }
                     }
                 }
             }
@@ -579,6 +539,8 @@ private fun RatingsGridPanel(
                                 val bringIntoViewRequester = remember(episodeId) { BringIntoViewRequester() }
                                 val upCell = displayModel.findNeighbor(rowIndex, columnIndex, -1)
                                 val downCell = displayModel.findNeighbor(rowIndex, columnIndex, 1)
+                                val leftCell = row.cells.findHorizontalNeighbor(columnIndex, -1)
+                                val rightCell = row.cells.findHorizontalNeighbor(columnIndex, 1)
 
                                 Card(
                                     onClick = {},
@@ -586,10 +548,12 @@ private fun RatingsGridPanel(
                                         .focusRequester(focusRequesters.getValue(episodeId))
                                         .bringIntoViewRequester(bringIntoViewRequester)
                                         .focusProperties {
+                                            left = leftCell?.episodeId?.let(focusRequesters::get) ?: Cancel
+                                            right = rightCell?.episodeId?.let(focusRequesters::get) ?: Cancel
                                             val resolvedUp = upCell?.episodeId?.let(focusRequesters::get) ?: upFocusRequester
-                                            if (resolvedUp != null) up = resolvedUp
+                                            up = resolvedUp ?: Cancel
                                             val resolvedDown = downCell?.episodeId?.let(focusRequesters::get) ?: downFocusRequester
-                                            if (resolvedDown != null) down = resolvedDown
+                                            down = resolvedDown ?: Cancel
                                         }
                                         .onFocusChanged {
                                             if (it.isFocused) onEpisodeFocused(episodeId)
@@ -663,6 +627,69 @@ private fun RatingsGridPanel(
     }
 }
 
+@Composable
+private fun HeaderBadge(
+    label: String,
+    average: Double?
+) {
+    if (average == null) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            color = NuvioColors.TextPrimary,
+            textAlign = TextAlign.Center
+        )
+        return
+    }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = NuvioColors.TextPrimary,
+            textAlign = TextAlign.Center
+        )
+        AverageBadge(average = average)
+    }
+}
+
+@Composable
+private fun AverageBadge(average: Double) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .width(14.dp)
+                .height(4.dp)
+                .clip(RoundedCornerShape(99.dp))
+                .background(getRatingColor(average))
+        )
+        Text(
+            text = String.format("%.1f", average),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = NuvioColors.TextSecondary
+        )
+    }
+}
+
+private fun List<RatingsDisplayCell>.findHorizontalNeighbor(
+    startIndex: Int,
+    offset: Int
+): RatingsDisplayCell? {
+    var targetIndex = startIndex + offset
+    while (targetIndex in indices) {
+        val cell = this[targetIndex]
+        if (cell.episodeId != null) return cell
+        targetIndex += offset
+    }
+    return null
+}
+
 internal fun buildEpisodeRatingsChartData(
     episodes: List<Video>,
     ratings: Map<Pair<Int, Int>, Double>
@@ -691,7 +718,8 @@ internal fun buildEpisodeRatingsChartData(
         latestSeasonNumber = latestSeason,
         episodeLookup = episodeLookup,
         ratings = ratings,
-        seasonAverages = seasonAverages
+        seasonAverages = seasonAverages,
+        seasonAverageBySeasonNumber = seasonAverages.associate { it.seasonNumber to it.average }
     )
 }
 
@@ -701,15 +729,17 @@ internal data class EpisodeRatingsChartData(
     val latestSeasonNumber: Int = 0,
     val episodeLookup: Map<Pair<Int, Int>, Video> = emptyMap(),
     val ratings: Map<Pair<Int, Int>, Double> = emptyMap(),
-    val seasonAverages: List<SeasonAverage> = emptyList()
+    val seasonAverages: List<SeasonAverage> = emptyList(),
+    val seasonAverageBySeasonNumber: Map<Int, Double> = emptyMap()
 ) {
     fun toDisplayModel(layoutMode: RatingsLayoutMode): RatingsDisplayModel {
         return when (layoutMode) {
             RatingsLayoutMode.EPISODES_ACROSS -> {
-                val columnLabels = (1..maxEpisodeNumber).map { "E$it" }
+                val columnHeaders = (1..maxEpisodeNumber).map { RatingsDisplayHeader(label = "E$it") }
                 val rows = displaySeasonNumbers.map { seasonNumber ->
                     RatingsDisplayRow(
                         label = "S$seasonNumber",
+                        average = seasonAverageBySeasonNumber[seasonNumber],
                         cells = (1..maxEpisodeNumber).map { episodeNumber ->
                             buildDisplayCell(seasonNumber, episodeNumber)
                         }
@@ -717,12 +747,17 @@ internal data class EpisodeRatingsChartData(
                 }
                 RatingsDisplayModel(
                     leadingHeader = "Season",
-                    columnLabels = columnLabels,
+                    columnHeaders = columnHeaders,
                     rows = rows
                 )
             }
             RatingsLayoutMode.SEASONS_ACROSS -> {
-                val columnLabels = displaySeasonNumbers.map { "S$it" }
+                val columnHeaders = displaySeasonNumbers.map { seasonNumber ->
+                    RatingsDisplayHeader(
+                        label = "S$seasonNumber",
+                        average = seasonAverageBySeasonNumber[seasonNumber]
+                    )
+                }
                 val rows = (1..maxEpisodeNumber).map { episodeNumber ->
                     RatingsDisplayRow(
                         label = "E$episodeNumber",
@@ -733,7 +768,7 @@ internal data class EpisodeRatingsChartData(
                 }
                 RatingsDisplayModel(
                     leadingHeader = "Episode",
-                    columnLabels = columnLabels,
+                    columnHeaders = columnHeaders,
                     rows = rows
                 )
             }
@@ -765,14 +800,16 @@ internal data class EpisodeRatingsChartData(
 
 internal data class RatingsDisplayModel(
     val leadingHeader: String,
-    val columnLabels: List<String>,
+    val columnHeaders: List<RatingsDisplayHeader>,
     val rows: List<RatingsDisplayRow>
 ) {
     val signature: String = buildString {
         append(leadingHeader)
-        columnLabels.forEach { append('|').append(it) }
+        columnHeaders.forEach { header ->
+            append('|').append(header.label).append(':').append(header.average ?: "x")
+        }
         rows.forEach { row ->
-            append('#').append(row.label)
+            append('#').append(row.label).append(':').append(row.average ?: "x")
             row.cells.forEach { append(':').append(it.episodeId ?: "x") }
         }
     }
@@ -791,8 +828,14 @@ internal data class RatingsDisplayModel(
     }
 }
 
+internal data class RatingsDisplayHeader(
+    val label: String,
+    val average: Double? = null
+)
+
 internal data class RatingsDisplayRow(
     val label: String,
+    val average: Double? = null,
     val cells: List<RatingsDisplayCell>
 )
 
