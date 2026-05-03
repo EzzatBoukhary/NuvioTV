@@ -26,9 +26,7 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -80,7 +78,6 @@ private val OverlayShape = RoundedCornerShape(12.dp)
 private val CellWidth = 46.dp
 private val CellHeight = 34.dp
 private val RowHeaderWidth = 60.dp
-private val SideRailWidth = 148.dp
 private val GridContentPadding = 10.dp
 private const val AverageRowLabel = "Avg"
 
@@ -584,48 +581,6 @@ private fun HeaderBadge(
 }
 
 @Composable
-private fun AverageBadge(average: Double) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        Text(
-            text = String.format("%.1f", average),
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-            color = NuvioColors.TextSecondary
-        )
-        Box(
-            modifier = Modifier
-                .width(16.dp)
-                .height(3.dp)
-                .clip(RoundedCornerShape(99.dp))
-                .background(getRatingColor(average))
-        )
-    }
-}
-
-@Composable
-private fun AverageBadgeHorizontal(average: Double) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = String.format("%.1f", average),
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-            color = NuvioColors.TextSecondary
-        )
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .height(12.dp)
-                .clip(RoundedCornerShape(99.dp))
-                .background(getRatingColor(average))
-        )
-    }
-}
-
-@Composable
 private fun CurrentSeasonClockIcon(modifier: Modifier = Modifier) {
     Icon(
         imageVector = Icons.Default.AccessTime,
@@ -743,87 +698,6 @@ private fun RatingsDisplayModel.findStrictVerticalNeighbor(
         targetRowIndex += offset
     }
     return null
-}
-
-@Composable
-private fun RatingLegendPanel(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .clip(PanelShape)
-            .background(NuvioColors.Surface.copy(alpha = 0.58f))
-            .border(1.dp, Color.White.copy(alpha = 0.10f), PanelShape)
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.ratings_scale_title),
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 18.sp),
-            color = NuvioColors.TextPrimary
-        )
-        val items = listOf(
-            LegendItem(color = ColorAwesome, label = stringResource(R.string.ratings_legend_awesome)),
-            LegendItem(color = ColorGreat, label = stringResource(R.string.ratings_legend_great)),
-            LegendItem(color = ColorGood, label = stringResource(R.string.ratings_legend_good)),
-            LegendItem(color = ColorRegular, label = stringResource(R.string.ratings_legend_regular)),
-            LegendItem(color = ColorBad, label = stringResource(R.string.ratings_legend_bad)),
-            LegendItem(color = ColorGarbage, label = stringResource(R.string.ratings_legend_garbage))
-        )
-        items.forEach { item -> LegendRow(item) }
-        Spacer(modifier = Modifier.height(4.dp))
-        LegendRow(
-            LegendItem(
-                iconColor = ColorCurrentSeason,
-                label = stringResource(R.string.ratings_warning_current_season)
-            )
-        )
-        LegendRow(
-            LegendItem(
-                iconColor = NuvioColors.TextSecondary,
-                iconContainerColor = ColorMutedCell,
-                label = stringResource(R.string.ratings_warning_upcoming_season)
-            )
-        )
-    }
-}
-
-@Composable
-private fun LegendRow(item: LegendItem, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (item.color != null) {
-            Box(
-                modifier = Modifier
-                    .size(14.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(item.color)
-            )
-        } else if (item.iconColor != null && item.iconContainerColor != null) {
-            StatusClockBadge(
-                iconTint = item.iconColor,
-                containerColor = item.iconContainerColor,
-                modifier = Modifier.size(16.dp),
-                iconSize = 12.dp
-            )
-        } else if (item.iconColor != null) {
-            Box(
-                modifier = Modifier
-                    .size(18.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.White.copy(alpha = 0.92f)),
-                contentAlignment = Alignment.Center
-            ) {
-                CurrentSeasonClockIcon(modifier = Modifier.size(16.dp))
-            }
-        }
-        Text(
-            text = item.label,
-            style = MaterialTheme.typography.labelMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
-            color = NuvioColors.TextSecondary
-        )
-    }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
