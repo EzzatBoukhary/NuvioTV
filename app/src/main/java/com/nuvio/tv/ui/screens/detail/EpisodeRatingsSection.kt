@@ -8,7 +8,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -211,16 +210,17 @@ private fun EpisodeRatingsBackdrop(backdropModel: Any?) {
 @Composable
 private fun OverlayHeaderBar(
     modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
+    content: @Composable RowScope.() -> Unit
 ) {
-    Column(
+    Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(OverlayShape)
             .background(NuvioColors.Surface.copy(alpha = 0.60f))
             .border(1.dp, Color.White.copy(alpha = 0.10f), OverlayShape)
-            .padding(horizontal = 12.dp, vertical = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
+        verticalAlignment = Alignment.CenterVertically,
         content = content
     )
 }
@@ -289,25 +289,19 @@ private fun EpisodeRatingsOverlayMessageDialog(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 OverlayHeaderBar {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp),
-                            color = NuvioColors.TextPrimary,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        RatingsCloseButton(
-                            onClick = onDismiss,
-                            modifier = Modifier.focusRequester(closeRequester)
-                        )
-                    }
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp),
+                        color = NuvioColors.TextPrimary,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    RatingsCloseButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.focusRequester(closeRequester)
+                    )
                 }
 
                 Box(
@@ -379,88 +373,81 @@ private fun EpisodeRatingsOverlay(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 OverlayHeaderBar {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = meta.name,
-                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp),
-                            color = NuvioColors.TextPrimary,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.width(20.dp))
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            var toggleFocused by rememberSaveable { mutableStateOf(false) }
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.focusRequester(toggleRequester)
-                                    .focusProperties {
-                                        down = firstCellFocusRequester ?: Cancel
-                                    }
-                                    .then(
-                                        if (toggleFocused) {
-                                            Modifier.border(
-                                                width = 2.dp,
-                                                color = NuvioColors.FocusRing,
-                                                shape = RoundedCornerShape(4.dp)
-                                            )
-                                        } else {
-                                            Modifier
-                                        }
-                                    )
-                                    .padding(horizontal = 4.dp, vertical = 2.dp)
-                                    .onFocusChanged { toggleFocused = it.isFocused }
-                            ) {
-                                Text(
-                                    text = "Inverted",
-                                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
-                                    color = NuvioColors.TextSecondary
-                                )
-                                Switch(
-                                    checked = layoutMode == RatingsLayoutMode.SEASONS_ACROSS,
-                                    onCheckedChange = { checked ->
-                                        onLayoutModeChanged(
-                                            if (checked) {
-                                                RatingsLayoutMode.SEASONS_ACROSS
-                                            } else {
-                                                RatingsLayoutMode.EPISODES_ACROSS
-                                            }
-                                        )
-                                    },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = NuvioColors.Secondary,
-                                        checkedTrackColor = NuvioColors.Secondary.copy(alpha = 0.3f),
-                                        uncheckedThumbColor = NuvioColors.TextSecondary,
-                                        uncheckedTrackColor = NuvioColors.BackgroundCard
-                                    )
-                                )
-                            }
-                            RatingsCloseButton(
-                                onClick = onDismiss,
-                                modifier = Modifier
-                                    .focusRequester(closeRequester)
-                                    .focusProperties {
-                                        up = toggleRequester
-                                        down = firstCellFocusRequester ?: Cancel
-                                    }
-                            )
-                        }
-                    }
+                    Text(
+                        text = meta.name,
+                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp),
+                        color = NuvioColors.TextPrimary,
+                        modifier = Modifier.weight(0.72f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
                     Box(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.weight(1.48f),
                         contentAlignment = Alignment.CenterStart
                     ) {
                         RatingLegendStrip(modifier = Modifier.fillMaxWidth())
+                    }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        var toggleFocused by rememberSaveable { mutableStateOf(false) }
+                        Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.focusRequester(toggleRequester)
+                                .focusProperties {
+                                    down = firstCellFocusRequester ?: Cancel
+                                }
+                                .then(
+                                    if (toggleFocused) {
+                                        Modifier.border(
+                                            width = 2.dp,
+                                            color = NuvioColors.FocusRing,
+                                            shape = RoundedCornerShape(4.dp)
+                                        )
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                                .padding(horizontal = 3.dp, vertical = 2.dp)
+                                .onFocusChanged { toggleFocused = it.isFocused }
+                        ) {
+                            Text(
+                                text = "Inverted",
+                                style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                                color = NuvioColors.TextSecondary
+                            )
+                            Switch(
+                                checked = layoutMode == RatingsLayoutMode.SEASONS_ACROSS,
+                                onCheckedChange = { checked ->
+                                    onLayoutModeChanged(
+                                        if (checked) {
+                                            RatingsLayoutMode.SEASONS_ACROSS
+                                        } else {
+                                            RatingsLayoutMode.EPISODES_ACROSS
+                                        }
+                                    )
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = NuvioColors.Secondary,
+                                    checkedTrackColor = NuvioColors.Secondary.copy(alpha = 0.3f),
+                                    uncheckedThumbColor = NuvioColors.TextSecondary,
+                                    uncheckedTrackColor = NuvioColors.BackgroundCard
+                                )
+                            )
+                        }
+                        RatingsCloseButton(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .focusRequester(closeRequester)
+                                .focusProperties {
+                                    up = toggleRequester
+                                    down = firstCellFocusRequester ?: Cancel
+                                }
+                        )
                     }
                 }
 
@@ -489,7 +476,7 @@ private fun RatingLegendStrip(modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxWidth()
             .horizontalScroll(scrollState)
-            .padding(horizontal = 4.dp),
+            .padding(horizontal = 2.dp),
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -501,9 +488,9 @@ private fun RatingLegendStrip(modifier: Modifier = Modifier) {
             LegendItem(color = ColorBad, label = "6+"),
             LegendItem(color = ColorGarbage, label = "<6")
         ).forEachIndexed { index, item ->
-            if (index > 0) Spacer(modifier = Modifier.width(8.dp))
+            if (index > 0) Spacer(modifier = Modifier.width(5.dp))
             Row(
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -518,13 +505,11 @@ private fun RatingLegendStrip(modifier: Modifier = Modifier) {
                     color = NuvioColors.TextSecondary
                 )
             }
-            if (index < 5) {
-                Spacer(modifier = Modifier.width(8.dp))
-            }
+            if (index < 5) Spacer(modifier = Modifier.width(4.dp))
         }
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(6.dp))
         Row(
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -544,9 +529,9 @@ private fun RatingLegendStrip(modifier: Modifier = Modifier) {
                 color = NuvioColors.TextSecondary
             )
         }
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(6.dp))
         Row(
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             StatusClockBadge(
@@ -561,7 +546,7 @@ private fun RatingLegendStrip(modifier: Modifier = Modifier) {
                 color = NuvioColors.TextSecondary
             )
         }
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(6.dp))
     }
 }
 
@@ -1210,8 +1195,19 @@ internal data class RatingsDisplayModel(
     fun findNeighbor(rowIndex: Int, columnIndex: Int, offset: Int): RatingsDisplayCell? {
         var targetIndex = rowIndex + offset
         while (targetIndex in rows.indices) {
-            val cell = rows[targetIndex].cells.getOrNull(columnIndex)
-            if (cell?.episodeId != null) return cell
+            val cells = rows[targetIndex].cells
+            val preferredIndex = columnIndex.coerceIn(0, cells.lastIndex)
+
+            for (searchIndex in preferredIndex downTo 0) {
+                val candidate = cells[searchIndex]
+                if (candidate.episodeId != null) return candidate
+            }
+
+            for (searchIndex in (preferredIndex + 1)..cells.lastIndex) {
+                val candidate = cells[searchIndex]
+                if (candidate.episodeId != null) return candidate
+            }
+
             targetIndex += offset
         }
         return null
