@@ -166,9 +166,9 @@ private fun EpisodeRatingsBackdrop(backdropModel: Any?) {
             .background(
                 Brush.horizontalGradient(
                     colors = listOf(
-                        Color.Black.copy(alpha = 0.82f),
-                        Color.Black.copy(alpha = 0.40f),
-                        Color.Black.copy(alpha = 0.04f)
+                        Color.Black.copy(alpha = 0.68f),
+                        Color.Black.copy(alpha = 0.24f),
+                        Color.Black.copy(alpha = 0.00f)
                     )
                 )
             )
@@ -179,9 +179,9 @@ private fun EpisodeRatingsBackdrop(backdropModel: Any?) {
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color.Black.copy(alpha = 0.08f),
+                        Color.Black.copy(alpha = 0.04f),
                         Color.Transparent,
-                        Color.Black.copy(alpha = 0.68f)
+                        Color.Black.copy(alpha = 0.52f)
                     )
                 )
             )
