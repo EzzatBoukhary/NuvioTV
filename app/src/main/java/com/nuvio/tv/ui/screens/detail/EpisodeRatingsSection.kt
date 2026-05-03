@@ -75,6 +75,7 @@ private val CellWidth = 46.dp
 private val CellHeight = 34.dp
 private val RowHeaderWidth = 60.dp
 private val SideRailWidth = 148.dp
+private val GridContentPadding = 16.dp
 private const val AverageRowLabel = "Avg"
 
 private val ColorAwesome = Color(0xFF186A3B)
@@ -316,7 +317,7 @@ private fun EpisodeRatingsOverlay(
                                 .focusRequester(closeRequester)
                                 .focusProperties { 
                                     up = toggleRequester
-                                    down = Cancel
+                                    down = firstCellFocusRequester ?: Cancel
                                 },
                             colors = ButtonDefaults.colors(
                                 containerColor = NuvioColors.BackgroundCard,
@@ -340,7 +341,7 @@ private fun EpisodeRatingsOverlay(
                     focusedEpisodeId = focusedEpisodeId,
                     onEpisodeFocused = { focusedEpisodeId = it },
                     focusRequesters = focusRequesters,
-                    upFocusRequester = toggleRequester,
+                    upFocusRequester = closeRequester,
                     downFocusRequester = closeRequester,
                     modifier = Modifier
                         .fillMaxSize()
@@ -390,13 +391,8 @@ private fun RatingLegendStrip(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(3.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.AccessTime,
-                contentDescription = null,
-                tint = ColorCurrentSeason,
-                modifier = Modifier
-                    .size(6.dp)
-                    .border(0.5.dp, ColorCurrentSeason, RoundedCornerShape(1.dp))
+            CurrentSeasonClockIcon(
+                modifier = Modifier.size(12.dp)
             )
             Text(
                 text = "Current",
@@ -409,13 +405,10 @@ private fun RatingLegendStrip(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(3.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.AccessTime,
-                contentDescription = null,
-                tint = Color(0xFF90CAF9),
-                modifier = Modifier
-                    .size(6.dp)
-                    .border(0.5.dp, Color(0xFF90CAF9), RoundedCornerShape(1.dp))
+            StatusClockBadge(
+                iconTint = NuvioColors.TextSecondary,
+                containerColor = ColorMutedCell,
+                modifier = Modifier.size(12.dp)
             )
             Text(
                 text = "Unreleased",
@@ -427,13 +420,23 @@ private fun RatingLegendStrip(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun HeaderBadge(label: String) {
-    Text(
-        text = label,
-        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-        color = NuvioColors.TextPrimary,
-        textAlign = TextAlign.Center
-    )
+private fun HeaderBadge(
+    label: String,
+    modifier: Modifier = Modifier,
+    color: Color = NuvioColors.TextPrimary
+) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+            color = color,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }
 
 @Composable
@@ -478,59 +481,67 @@ private fun AverageBadgeHorizontal(average: Double) {
     }
 }
 
+@Composable
+private fun CurrentSeasonClockIcon(modifier: Modifier = Modifier) {
+    Icon(
+        imageVector = Icons.Default.AccessTime,
+        contentDescription = null,
+        tint = Color(0xFF0B1F3A),
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun StatusClockBadge(
+    iconTint: Color,
+    containerColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(3.dp))
+            .background(containerColor),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.AccessTime,
+            contentDescription = null,
+            tint = iconTint,
+            modifier = Modifier.size(8.dp)
+        )
+    }
+}
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun SummaryCell(cell: RatingsDisplayCell, isEpisodesAcross: Boolean = false) {
     Box(
         modifier = Modifier
             .size(width = CellWidth, height = CellHeight)
-            .background(Color.Transparent),
+            .padding(3.dp),
         contentAlignment = Alignment.Center
     ) {
-        if (isEpisodesAcross) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(if (isEpisodesAcross) 3.dp else 4.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 2.dp)
+        ) {
+            Text(
+                text = cell.ratingLabel,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = NuvioColors.TextSecondary,
+                maxLines = 1,
+                textAlign = TextAlign.Center
+            )
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 4.dp)
-            ) {
-                Text(
-                    text = cell.ratingLabel,
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = NuvioColors.TextSecondary,
-                    maxLines = 1
-                )
-                Box(
-                    modifier = Modifier
-                        .width(2.dp)
-                        .height(12.dp)
-                        .clip(RoundedCornerShape(99.dp))
-                        .background(cell.backgroundColor)
-                )
-            }
-        } else {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(vertical = 2.dp)
-            ) {
-                Text(
-                    text = cell.ratingLabel,
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    color = NuvioColors.TextSecondary,
-                    maxLines = 1
-                )
-                Box(
-                    modifier = Modifier
-                        .width(12.dp)
-                        .height(2.dp)
-                        .clip(RoundedCornerShape(99.dp))
-                        .background(cell.backgroundColor)
-                )
-            }
+                    .width(if (isEpisodesAcross) 14.dp else 12.dp)
+                    .height(2.dp)
+                    .clip(RoundedCornerShape(99.dp))
+                    .background(cell.backgroundColor)
+            )
         }
     }
 }
@@ -573,8 +584,19 @@ private fun RatingLegendPanel(modifier: Modifier = Modifier) {
         )
         items.forEach { item -> LegendRow(item) }
         Spacer(modifier = Modifier.height(4.dp))
-        LegendRow(LegendItem(iconColor = ColorCurrentSeason, label = stringResource(R.string.ratings_warning_current_season)))
-        LegendRow(LegendItem(iconColor = Color(0xFF90CAF9), label = stringResource(R.string.ratings_warning_upcoming_season)))
+        LegendRow(
+            LegendItem(
+                iconColor = ColorCurrentSeason,
+                label = stringResource(R.string.ratings_warning_current_season)
+            )
+        )
+        LegendRow(
+            LegendItem(
+                iconColor = NuvioColors.TextSecondary,
+                iconContainerColor = ColorMutedCell,
+                label = stringResource(R.string.ratings_warning_upcoming_season)
+            )
+        )
     }
 }
 
@@ -592,13 +614,14 @@ private fun LegendRow(item: LegendItem, modifier: Modifier = Modifier) {
                     .clip(RoundedCornerShape(3.dp))
                     .background(item.color)
             )
-        } else if (item.iconColor != null) {
-            Icon(
-                imageVector = Icons.Default.AccessTime,
-                contentDescription = null,
-                tint = item.iconColor,
+        } else if (item.iconColor != null && item.iconContainerColor != null) {
+            StatusClockBadge(
+                iconTint = item.iconColor,
+                containerColor = item.iconContainerColor,
                 modifier = Modifier.size(14.dp)
             )
+        } else if (item.iconColor != null) {
+            CurrentSeasonClockIcon(modifier = Modifier.size(14.dp))
         }
         Text(
             text = item.label,
@@ -625,70 +648,63 @@ private fun RatingsGridPanel(
 
     Column(
         modifier = modifier
-            .clip(PanelShape)
-            .background(NuvioColors.Surface.copy(alpha = 0.60f))
+            .background(NuvioColors.Surface.copy(alpha = 0.60f), PanelShape)
             .border(1.dp, Color.White.copy(alpha = 0.10f), PanelShape)
             .padding(12.dp)
     ) {
-        Row(modifier = Modifier.padding(bottom = 4.dp)) {
-            Box(
+        Row(
+            modifier = Modifier
+                .padding(start = GridContentPadding, end = GridContentPadding, top = GridContentPadding, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HeaderBadge(
+                label = displayModel.leadingHeader,
                 modifier = Modifier
                     .width(RowHeaderWidth)
-                    .height(CellHeight),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = displayModel.leadingHeader,
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                    color = NuvioColors.TextPrimary,
-                    textAlign = TextAlign.Center
-                )
-            }
+                    .height(CellHeight)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
 
             Row(
                 modifier = Modifier.horizontalScroll(horizontalScrollState),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 displayModel.columnHeaders.forEach { header ->
-                    Box(
+                    HeaderBadge(
+                        label = header.label,
                         modifier = Modifier
                             .width(CellWidth)
-                            .height(CellHeight),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        HeaderBadge(label = header.label)
-                    }
+                            .height(CellHeight)
+                    )
                 }
             }
         }
 
-        Row(modifier = Modifier.weight(1f)) {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = GridContentPadding, end = GridContentPadding, bottom = GridContentPadding)
+        ) {
             Column(
                 modifier = Modifier
                     .width(RowHeaderWidth)
                     .verticalScroll(verticalScrollState)
                     .padding(end = 4.dp)
             ) {
-                displayModel.rows.forEachIndexed { rowIndex, row ->
-                    Box(
-                        modifier = Modifier
-                            .height(CellHeight)
-                            .padding(bottom = if (rowIndex == displayModel.rows.lastIndex) 0.dp else 4.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    displayModel.rows.forEachIndexed { rowIndex, row ->
+                        Box(
+                            modifier = Modifier
+                                .width(RowHeaderWidth)
+                                .height(CellHeight)
+                                .padding(bottom = if (rowIndex == displayModel.rows.lastIndex) 0.dp else 4.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = row.label,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = NuvioColors.TextSecondary,
-                                textAlign = TextAlign.Center
+                            HeaderBadge(
+                                label = row.label,
+                                modifier = Modifier.fillMaxSize(),
+                                color = NuvioColors.TextSecondary
                             )
-                            row.average?.let { average ->
-                                AverageBadge(average = average)
-                            }
                         }
                     }
                 }
@@ -699,7 +715,11 @@ private fun RatingsGridPanel(
                     .weight(1f)
                     .horizontalScroll(horizontalScrollState)
             ) {
-                Column(modifier = Modifier.verticalScroll(verticalScrollState)) {
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(verticalScrollState)
+                        .padding(vertical = 4.dp)
+                ) {
                     displayModel.rows.forEachIndexed { rowIndex, row ->
                         Row(
                             modifier = Modifier
@@ -731,11 +751,9 @@ private fun RatingsGridPanel(
                                                 .focusProperties {
                                                     left = leftCell?.episodeId?.let(focusRequesters::get) ?: Cancel
                                                     right = rightCell?.episodeId?.let(focusRequesters::get) ?: Cancel
-                                                    val resolvedUp = if (rowIndex == 0) {
-                                                        upFocusRequester
-                                                    } else {
+                                                    val resolvedUp =
                                                         upCell?.episodeId?.let(focusRequesters::get)
-                                                    }
+                                                            ?: upFocusRequester
                                                     up = resolvedUp ?: Cancel
                                                     val resolvedDown = if (rowIndex == displayModel.rows.lastIndex) {
                                                         Cancel
@@ -758,7 +776,7 @@ private fun RatingsGridPanel(
                                                     shape = CellShape
                                                 )
                                             ),
-                                            scale = CardDefaults.scale(focusedScale = 1.03f)
+                                            scale = CardDefaults.scale(focusedScale = 1f)
                                         ) {
                                             if (focusedEpisodeId == episodeId) {
                                                 LaunchedEffect(episodeId) {
@@ -766,7 +784,9 @@ private fun RatingsGridPanel(
                                                 }
                                             }
                                             Box(
-                                                modifier = Modifier.size(width = CellWidth, height = CellHeight),
+                                                modifier = Modifier
+                                                    .size(width = CellWidth, height = CellHeight)
+                                                    .padding(3.dp),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 when (cell.state) {
@@ -774,36 +794,34 @@ private fun RatingsGridPanel(
                                                         Text(
                                                             text = cell.ratingLabel,
                                                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                                                            color = if (cell.useDarkText) Color(0xFF1D1D1F) else Color.White
+                                                            color = if (cell.useDarkText) Color(0xFF1D1D1F) else Color.White,
+                                                            textAlign = TextAlign.Center
                                                         )
                                                     }
                                                     EpisodeRatingCellState.UNRATED -> {
                                                         Text(
                                                             text = "—",
                                                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                                                            color = NuvioColors.TextSecondary
+                                                            color = NuvioColors.TextSecondary,
+                                                            textAlign = TextAlign.Center
                                                         )
                                                     }
                                                     EpisodeRatingCellState.UNAIRED -> {
-                                                        Icon(
-                                                            imageVector = Icons.Default.AccessTime,
-                                                            contentDescription = null,
-                                                            tint = NuvioColors.TextSecondary,
-                                                            modifier = Modifier.size(16.dp)
+                                                        StatusClockBadge(
+                                                            iconTint = NuvioColors.TextSecondary,
+                                                            containerColor = ColorMutedCell,
+                                                            modifier = Modifier.size(18.dp)
                                                         )
                                                     }
                                                     EpisodeRatingCellState.SUMMARY -> Unit
                                                 }
 
                                                 if (cell.showCurrentSeasonBadge) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.AccessTime,
-                                                        contentDescription = null,
-                                                        tint = ColorCurrentSeason,
+                                                    CurrentSeasonClockIcon(
                                                         modifier = Modifier
                                                             .align(Alignment.TopEnd)
-                                                            .padding(top = 2.dp, end = 2.dp)
-                                                            .size(12.dp)
+                                                            .padding(top = 1.dp, end = 1.dp)
+                                                            .size(14.dp)
                                                     )
                                                 }
                                             }
@@ -1075,7 +1093,8 @@ internal data class RatingsDisplayCell(
 private data class LegendItem(
     val color: Color? = null,
     val label: String,
-    val iconColor: Color? = null
+    val iconColor: Color? = null,
+    val iconContainerColor: Color? = null
 )
 
 private fun getRatingColor(rating: Double): Color {
