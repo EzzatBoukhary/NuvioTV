@@ -8,11 +8,13 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -95,6 +97,45 @@ internal enum class RatingsLayoutMode {
     SEASONS_ACROSS
 }
 
+private data class RatingsGridMetrics(
+    val cellWidth: androidx.compose.ui.unit.Dp,
+    val cellHeight: androidx.compose.ui.unit.Dp,
+    val rowHeaderWidth: androidx.compose.ui.unit.Dp,
+    val gridSpacing: androidx.compose.ui.unit.Dp,
+    val cellPadding: androidx.compose.ui.unit.Dp,
+    val summaryBarWidth: androidx.compose.ui.unit.Dp,
+    val summaryBarWidthEpisodesAcross: androidx.compose.ui.unit.Dp,
+    val summaryBarHeight: androidx.compose.ui.unit.Dp,
+    val currentSeasonIconSize: androidx.compose.ui.unit.Dp,
+    val unreleasedIconBoxSize: androidx.compose.ui.unit.Dp,
+    val unreleasedIconSize: androidx.compose.ui.unit.Dp
+)
+
+private fun rememberRatingsGridMetrics(displayModel: RatingsDisplayModel): RatingsGridMetrics {
+    val rowCount = displayModel.rows.size
+    val columnCount = displayModel.columnHeaders.size
+    val scale = when {
+        rowCount <= 2 || columnCount <= 2 -> 1.80f
+        rowCount <= 3 || columnCount <= 3 -> 1.55f
+        rowCount <= 4 || columnCount <= 4 -> 1.32f
+        rowCount <= 6 && columnCount <= 6 -> 1.16f
+        else -> 1f
+    }
+    return RatingsGridMetrics(
+        cellWidth = CellWidth * scale,
+        cellHeight = CellHeight * scale,
+        rowHeaderWidth = RowHeaderWidth * scale.coerceAtMost(1.35f),
+        gridSpacing = if (scale > 1.6f) 8.dp else if (scale > 1.3f) 7.dp else if (scale > 1f) 5.dp else 4.dp,
+        cellPadding = if (scale > 1.3f) 5.dp else if (scale > 1f) 4.dp else 3.dp,
+        summaryBarWidth = if (scale > 1.6f) 20.dp else if (scale > 1.3f) 18.dp else if (scale > 1f) 14.dp else 12.dp,
+        summaryBarWidthEpisodesAcross = if (scale > 1.6f) 22.dp else if (scale > 1.3f) 20.dp else if (scale > 1f) 16.dp else 14.dp,
+        summaryBarHeight = if (scale > 1.3f) 4.dp else if (scale > 1f) 3.dp else 2.dp,
+        currentSeasonIconSize = if (scale > 1.6f) 20.dp else if (scale > 1.3f) 18.dp else 14.dp,
+        unreleasedIconBoxSize = if (scale > 1.6f) 24.dp else if (scale > 1.3f) 22.dp else 18.dp,
+        unreleasedIconSize = if (scale > 1.6f) 16.dp else if (scale > 1.3f) 14.dp else 12.dp
+    )
+}
+
 @Composable
 fun EpisodeRatingsOverlayDialog(
     meta: Meta,
@@ -162,26 +203,60 @@ private fun EpisodeRatingsBackdrop(backdropModel: Any?) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.42f))
+            .background(Color.Black.copy(alpha = 0.58f))
     )
 }
 
 @Composable
 private fun OverlayHeaderBar(
     modifier: Modifier = Modifier,
-    content: @Composable RowScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit
 ) {
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(OverlayShape)
-            .background(Color.Black.copy(alpha = 0.24f))
-            .border(1.dp, Color.White.copy(alpha = 0.08f), OverlayShape)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+            .background(NuvioColors.Surface.copy(alpha = 0.60f))
+            .border(1.dp, Color.White.copy(alpha = 0.10f), OverlayShape)
+            .padding(horizontal = 12.dp, vertical = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
         content = content
     )
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun RatingsCloseButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        shape = ButtonDefaults.shape(RoundedCornerShape(999.dp)),
+        border = ButtonDefaults.border(
+            focusedBorder = Border(
+                border = BorderStroke(2.dp, NuvioColors.FocusRing),
+                shape = RoundedCornerShape(999.dp)
+            )
+        ),
+        colors = ButtonDefaults.colors(
+            containerColor = NuvioColors.BackgroundCard.copy(alpha = 0.92f),
+            focusedContainerColor = Color.White,
+            contentColor = NuvioColors.TextPrimary,
+            focusedContentColor = Color.Black
+        ),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            horizontal = 16.dp,
+            vertical = 3.dp
+        )
+    ) {
+        Text(
+            text = stringResource(R.string.ratings_close_overlay),
+            style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold),
+            maxLines = 1
+        )
+    }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -209,30 +284,27 @@ private fun EpisodeRatingsOverlayMessageDialog(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 OverlayHeaderBar {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = NuvioColors.TextPrimary,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.focusRequester(closeRequester),
-                        colors = ButtonDefaults.colors(
-                            containerColor = NuvioColors.BackgroundCard,
-                            focusedContainerColor = NuvioColors.FocusBackground,
-                            contentColor = NuvioColors.TextPrimary,
-                            focusedContentColor = NuvioColors.Primary
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = stringResource(R.string.ratings_close_overlay),
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp),
+                            color = NuvioColors.TextPrimary,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        RatingsCloseButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.focusRequester(closeRequester)
                         )
                     }
                 }
@@ -248,7 +320,7 @@ private fun EpisodeRatingsOverlayMessageDialog(
                 ) {
                     Text(
                         text = message,
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 20.sp),
                         color = NuvioColors.TextPrimary,
                         textAlign = TextAlign.Center
                     )
@@ -302,87 +374,92 @@ private fun EpisodeRatingsOverlay(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 OverlayHeaderBar {
-                    Text(
-                        text = meta.name,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = NuvioColors.TextPrimary,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = meta.name,
+                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp),
+                            color = NuvioColors.TextPrimary,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.width(20.dp))
 
-                    RatingLegendStrip(modifier = Modifier.weight(1f))
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        var toggleFocused by rememberSaveable { mutableStateOf(false) }
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.focusRequester(toggleRequester)
-                                .focusProperties { 
-                                    down = firstCellFocusRequester ?: Cancel
-                                }
-                                .then(
-                                    if (toggleFocused) {
-                                        Modifier.border(
-                                            width = 2.dp,
-                                            color = NuvioColors.FocusRing,
-                                            shape = RoundedCornerShape(4.dp)
-                                        )
-                                    } else {
-                                        Modifier
-                                    }
-                                )
-                                .padding(4.dp)
-                                .onFocusChanged { toggleFocused = it.isFocused }
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Inverted",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = NuvioColors.TextSecondary
-                            )
-                            Switch(
-                                checked = layoutMode == RatingsLayoutMode.SEASONS_ACROSS,
-                                onCheckedChange = { checked ->
-                                    onLayoutModeChanged(
-                                        if (checked) {
-                                            RatingsLayoutMode.SEASONS_ACROSS
+                            var toggleFocused by rememberSaveable { mutableStateOf(false) }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.focusRequester(toggleRequester)
+                                    .focusProperties {
+                                        down = firstCellFocusRequester ?: Cancel
+                                    }
+                                    .then(
+                                        if (toggleFocused) {
+                                            Modifier.border(
+                                                width = 2.dp,
+                                                color = NuvioColors.FocusRing,
+                                                shape = RoundedCornerShape(4.dp)
+                                            )
                                         } else {
-                                            RatingsLayoutMode.EPISODES_ACROSS
+                                            Modifier
                                         }
                                     )
-                                },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = NuvioColors.Secondary,
-                                    checkedTrackColor = NuvioColors.Secondary.copy(alpha = 0.3f),
-                                    uncheckedThumbColor = NuvioColors.TextSecondary,
-                                    uncheckedTrackColor = NuvioColors.BackgroundCard
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                                    .onFocusChanged { toggleFocused = it.isFocused }
+                            ) {
+                                Text(
+                                    text = "Inverted",
+                                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                                    color = NuvioColors.TextSecondary
                                 )
+                                Switch(
+                                    checked = layoutMode == RatingsLayoutMode.SEASONS_ACROSS,
+                                    onCheckedChange = { checked ->
+                                        onLayoutModeChanged(
+                                            if (checked) {
+                                                RatingsLayoutMode.SEASONS_ACROSS
+                                            } else {
+                                                RatingsLayoutMode.EPISODES_ACROSS
+                                            }
+                                        )
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = NuvioColors.Secondary,
+                                        checkedTrackColor = NuvioColors.Secondary.copy(alpha = 0.3f),
+                                        uncheckedThumbColor = NuvioColors.TextSecondary,
+                                        uncheckedTrackColor = NuvioColors.BackgroundCard
+                                    )
+                                )
+                            }
+                            RatingsCloseButton(
+                                onClick = onDismiss,
+                                modifier = Modifier
+                                    .focusRequester(closeRequester)
+                                    .focusProperties {
+                                        up = toggleRequester
+                                        down = firstCellFocusRequester ?: Cancel
+                                    }
                             )
                         }
-                        Button(
-                            onClick = onDismiss,
-                            modifier = Modifier
-                                .focusRequester(closeRequester)
-                                .focusProperties { 
-                                    up = toggleRequester
-                                    down = firstCellFocusRequester ?: Cancel
-                                },
-                            colors = ButtonDefaults.colors(
-                                containerColor = NuvioColors.BackgroundCard,
-                                focusedContainerColor = NuvioColors.FocusBackground,
-                                contentColor = NuvioColors.TextPrimary,
-                                focusedContentColor = NuvioColors.Primary
-                            )
-                        ) {
-                            Text(
-                                text = stringResource(R.string.ratings_close_overlay),
-                                style = MaterialTheme.typography.labelSmall,
-                                maxLines = 1
-                            )
-                        }
+                    }
+
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        RatingLegendStrip(modifier = Modifier.fillMaxWidth())
                     }
                 }
 
@@ -405,10 +482,14 @@ private fun EpisodeRatingsOverlay(
 
 @Composable
 private fun RatingLegendStrip(modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
+
     Row(
         modifier = modifier
-            .padding(horizontal = 8.dp),
-        horizontalArrangement = Arrangement.Center,
+            .fillMaxWidth()
+            .horizontalScroll(scrollState)
+            .padding(horizontal = 4.dp),
+        horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
     ) {
         listOf(
@@ -421,53 +502,65 @@ private fun RatingLegendStrip(modifier: Modifier = Modifier) {
         ).forEachIndexed { index, item ->
             if (index > 0) Spacer(modifier = Modifier.width(8.dp))
             Row(
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(6.dp)
-                        .clip(RoundedCornerShape(2.dp))
+                        .size(10.dp)
+                        .clip(RoundedCornerShape(3.dp))
                         .background(item.color!!)
                 )
                 Text(
                     text = item.label,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
                     color = NuvioColors.TextSecondary
                 )
+            }
+            if (index < 5) {
+                Spacer(modifier = Modifier.width(8.dp))
             }
         }
         Spacer(modifier = Modifier.width(8.dp))
         Row(
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            CurrentSeasonClockIcon(
-                modifier = Modifier.size(16.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(20.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color.White.copy(alpha = 0.94f)),
+                contentAlignment = Alignment.Center
+            ) {
+                CurrentSeasonClockIcon(
+                    modifier = Modifier.size(16.dp)
+                )
+            }
             Text(
                 text = "Current",
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
                 color = NuvioColors.TextSecondary
             )
         }
         Spacer(modifier = Modifier.width(8.dp))
         Row(
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             StatusClockBadge(
                 iconTint = Color.White,
                 containerColor = ColorMutedCell,
-                modifier = Modifier.size(14.dp),
-                iconSize = 11.dp
+                modifier = Modifier.size(18.dp),
+                iconSize = 13.dp
             )
             Text(
                 text = "Unreleased",
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
                 color = NuvioColors.TextSecondary
             )
         }
+        Spacer(modifier = Modifier.width(12.dp))
     }
 }
 
@@ -475,19 +568,28 @@ private fun RatingLegendStrip(modifier: Modifier = Modifier) {
 private fun HeaderBadge(
     label: String,
     modifier: Modifier = Modifier,
-    color: Color = NuvioColors.TextPrimary
+    color: Color = NuvioColors.TextPrimary,
+    fontSize: androidx.compose.ui.unit.TextUnit = 18.sp,
+    contentPadding: androidx.compose.ui.unit.Dp = 3.dp
 ) {
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-            color = color,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = contentPadding, vertical = 2.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontSize = fontSize),
+                color = color,
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
+        }
     }
 }
 
@@ -538,7 +640,7 @@ private fun CurrentSeasonClockIcon(modifier: Modifier = Modifier) {
     Icon(
         imageVector = Icons.Default.AccessTime,
         contentDescription = null,
-        tint = ColorCurrentSeason,
+        tint = Color.Black,
         modifier = modifier
     )
 }
@@ -567,31 +669,38 @@ private fun StatusClockBadge(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun SummaryCell(cell: RatingsDisplayCell, isEpisodesAcross: Boolean = false) {
+private fun SummaryCell(
+    cell: RatingsDisplayCell,
+    metrics: RatingsGridMetrics,
+    isEpisodesAcross: Boolean = false
+) {
     Box(
         modifier = Modifier
-            .size(width = CellWidth, height = CellHeight)
-            .padding(3.dp),
+            .size(width = metrics.cellWidth, height = metrics.cellHeight)
+            .padding(horizontal = metrics.cellPadding, vertical = 2.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(if (isEpisodesAcross) 3.dp else 4.dp),
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(vertical = 2.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
         ) {
             Text(
                 text = cell.ratingLabel,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp),
                 color = NuvioColors.TextSecondary,
                 maxLines = 1,
                 textAlign = TextAlign.Center
             )
             Box(
                 modifier = Modifier
-                    .width(if (isEpisodesAcross) 14.dp else 12.dp)
-                    .height(2.dp)
+                    .width(
+                        if (isEpisodesAcross) {
+                            metrics.summaryBarWidthEpisodesAcross
+                        } else {
+                            metrics.summaryBarWidth
+                        }
+                    )
+                    .height(metrics.summaryBarHeight.coerceAtLeast(3.dp))
                     .clip(RoundedCornerShape(99.dp))
                     .background(cell.backgroundColor)
             )
@@ -624,7 +733,7 @@ private fun RatingLegendPanel(modifier: Modifier = Modifier) {
     ) {
         Text(
             text = stringResource(R.string.ratings_scale_title),
-            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 18.sp),
             color = NuvioColors.TextPrimary
         )
         val items = listOf(
@@ -663,23 +772,31 @@ private fun LegendRow(item: LegendItem, modifier: Modifier = Modifier) {
         if (item.color != null) {
             Box(
                 modifier = Modifier
-                    .size(12.dp)
-                    .clip(RoundedCornerShape(3.dp))
+                    .size(14.dp)
+                    .clip(RoundedCornerShape(4.dp))
                     .background(item.color)
             )
         } else if (item.iconColor != null && item.iconContainerColor != null) {
             StatusClockBadge(
                 iconTint = item.iconColor,
                 containerColor = item.iconContainerColor,
-                modifier = Modifier.size(14.dp),
-                iconSize = 11.dp
+                modifier = Modifier.size(16.dp),
+                iconSize = 12.dp
             )
         } else if (item.iconColor != null) {
-            CurrentSeasonClockIcon(modifier = Modifier.size(14.dp))
+            Box(
+                modifier = Modifier
+                    .size(18.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color.White.copy(alpha = 0.92f)),
+                contentAlignment = Alignment.Center
+            ) {
+                CurrentSeasonClockIcon(modifier = Modifier.size(16.dp))
+            }
         }
         Text(
             text = item.label,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
             color = NuvioColors.TextSecondary
         )
     }
@@ -699,6 +816,7 @@ private fun RatingsGridPanel(
 ) {
     val horizontalScrollState = rememberScrollState()
     val verticalScrollState = rememberScrollState()
+    val metrics = remember(displayModel) { rememberRatingsGridMetrics(displayModel) }
 
     Column(
         modifier = modifier
@@ -714,21 +832,25 @@ private fun RatingsGridPanel(
             HeaderBadge(
                 label = displayModel.leadingHeader,
                 modifier = Modifier
-                    .width(RowHeaderWidth)
-                    .height(CellHeight)
+                    .width(metrics.rowHeaderWidth)
+                    .height(metrics.cellHeight),
+                fontSize = 15.sp,
+                contentPadding = metrics.cellPadding
             )
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(metrics.gridSpacing))
 
             Row(
                 modifier = Modifier.horizontalScroll(horizontalScrollState),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(metrics.gridSpacing)
             ) {
                 displayModel.columnHeaders.forEach { header ->
                     HeaderBadge(
                         label = header.label,
                         modifier = Modifier
-                            .width(CellWidth)
-                            .height(CellHeight)
+                            .width(metrics.cellWidth)
+                            .height(metrics.cellHeight),
+                        fontSize = 16.sp,
+                        contentPadding = metrics.cellPadding
                     )
                 }
             }
@@ -741,23 +863,25 @@ private fun RatingsGridPanel(
         ) {
             Column(
                 modifier = Modifier
-                    .width(RowHeaderWidth)
+                    .width(metrics.rowHeaderWidth)
                     .verticalScroll(verticalScrollState)
-                    .padding(end = 4.dp)
+                    .padding(end = metrics.gridSpacing)
             ) {
-                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                Column(modifier = Modifier.padding(vertical = metrics.gridSpacing)) {
                     displayModel.rows.forEachIndexed { rowIndex, row ->
                         Box(
                             modifier = Modifier
-                                .width(RowHeaderWidth)
-                                .height(CellHeight)
-                                .padding(bottom = if (rowIndex == displayModel.rows.lastIndex) 0.dp else 4.dp),
+                                .width(metrics.rowHeaderWidth)
+                                .height(metrics.cellHeight)
+                                .padding(bottom = if (rowIndex == displayModel.rows.lastIndex) 0.dp else metrics.gridSpacing),
                             contentAlignment = Alignment.Center
                         ) {
                             HeaderBadge(
                                 label = row.label,
                                 modifier = Modifier.fillMaxSize(),
-                                color = NuvioColors.TextSecondary
+                                color = NuvioColors.TextSecondary,
+                                fontSize = 16.sp,
+                                contentPadding = metrics.cellPadding
                             )
                         }
                     }
@@ -772,22 +896,26 @@ private fun RatingsGridPanel(
                 Column(
                     modifier = Modifier
                         .verticalScroll(verticalScrollState)
-                        .padding(vertical = 4.dp)
+                        .padding(vertical = metrics.gridSpacing)
                 ) {
                     displayModel.rows.forEachIndexed { rowIndex, row ->
                         Row(
                             modifier = Modifier
-                                .height(CellHeight)
-                                .padding(bottom = if (rowIndex == displayModel.rows.lastIndex) 0.dp else 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                .height(metrics.cellHeight)
+                                .padding(bottom = if (rowIndex == displayModel.rows.lastIndex) 0.dp else metrics.gridSpacing),
+                            horizontalArrangement = Arrangement.spacedBy(metrics.gridSpacing)
                         ) {
                             row.cells.forEachIndexed { columnIndex, cell ->
                                 when {
                                     cell.state == EpisodeRatingCellState.SUMMARY -> {
-                                        SummaryCell(cell, isEpisodesAcross = layoutMode == RatingsLayoutMode.EPISODES_ACROSS)
+                                        SummaryCell(
+                                            cell = cell,
+                                            metrics = metrics,
+                                            isEpisodesAcross = layoutMode == RatingsLayoutMode.EPISODES_ACROSS
+                                        )
                                     }
                                     cell.episodeId == null -> {
-                                        Box(modifier = Modifier.size(width = CellWidth, height = CellHeight))
+                                        Box(modifier = Modifier.size(width = metrics.cellWidth, height = metrics.cellHeight))
                                     }
                                     else -> {
                                         val episodeId = cell.episodeId
@@ -839,15 +967,18 @@ private fun RatingsGridPanel(
                                             }
                                             Box(
                                                 modifier = Modifier
-                                                    .size(width = CellWidth, height = CellHeight)
-                                                    .padding(3.dp),
+                                                    .size(width = metrics.cellWidth, height = metrics.cellHeight)
+                                                    .padding(metrics.cellPadding),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 when (cell.state) {
                                                     EpisodeRatingCellState.RATED -> {
                                                         Text(
                                                             text = cell.ratingLabel,
-                                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                                            style = MaterialTheme.typography.titleSmall.copy(
+                                                                fontWeight = FontWeight.Bold,
+                                                                fontSize = 18.sp
+                                                            ),
                                                             color = if (cell.useDarkText) Color(0xFF1D1D1F) else Color.White,
                                                             textAlign = TextAlign.Center
                                                         )
@@ -855,7 +986,10 @@ private fun RatingsGridPanel(
                                                     EpisodeRatingCellState.UNRATED -> {
                                                         Text(
                                                             text = "—",
-                                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                                            style = MaterialTheme.typography.titleSmall.copy(
+                                                                fontWeight = FontWeight.Bold,
+                                                                fontSize = 18.sp
+                                                            ),
                                                             color = NuvioColors.TextSecondary,
                                                             textAlign = TextAlign.Center
                                                         )
@@ -864,8 +998,8 @@ private fun RatingsGridPanel(
                                                         StatusClockBadge(
                                                             iconTint = Color.White,
                                                             containerColor = ColorMutedCell,
-                                                            modifier = Modifier.size(18.dp),
-                                                            iconSize = 12.dp
+                                                            modifier = Modifier.size(metrics.unreleasedIconBoxSize),
+                                                            iconSize = metrics.unreleasedIconSize
                                                         )
                                                     }
                                                     EpisodeRatingCellState.SUMMARY -> Unit
@@ -876,7 +1010,7 @@ private fun RatingsGridPanel(
                                                         modifier = Modifier
                                                             .align(Alignment.TopEnd)
                                                             .padding(top = 1.dp, end = 1.dp)
-                                                            .size(14.dp)
+                                                            .size(metrics.currentSeasonIconSize)
                                                     )
                                                 }
                                             }
