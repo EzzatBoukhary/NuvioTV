@@ -168,6 +168,12 @@ private fun resolveDetailReturnEpisodeFocusTarget(
 
 private const val USER_INTERACTION_DISPATCH_DEBOUNCE_MS = 120L
 
+
+private fun formatDetailYearRange(releaseInfo: String?): String? {
+    if (releaseInfo.isNullOrBlank()) return null
+    return releaseInfo.trim()
+}
+
 private fun applyDither(bmp: android.graphics.Bitmap) {
     val pixels = IntArray(bmp.width * bmp.height)
     bmp.getPixels(pixels, 0, bmp.width, 0, 0, bmp.width, bmp.height)
@@ -416,7 +422,7 @@ fun MetaDetailsScreen(
                     meta.genres.takeIf { it.isNotEmpty() }?.joinToString(" • ")
                 }
                 val yearString = remember(meta.releaseInfo) {
-                    meta.releaseInfo?.split("-")?.firstOrNull() ?: meta.releaseInfo
+                    formatDetailYearRange(meta.releaseInfo)
                 }
 
                 MetaDetailsContent(
