@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +23,7 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessTime
@@ -43,6 +45,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -60,6 +63,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Switch
 import androidx.tv.material3.SwitchDefaults
 import androidx.tv.material3.Text
+import coil3.compose.AsyncImage
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.Video
@@ -85,115 +89,195 @@ private val ColorRegular = Color(0xFFF39C12)
 private val ColorBad = Color(0xFFE74C3C)
 private val ColorGarbage = Color(0xFF633974)
 private val ColorMutedCell = Color(0xFF111111)
-private val ColorCurrentSeason = Color(0xFF42A5F5)
+private val ColorCurrentSeason = Color(0xFF1976D2)
 
 internal enum class RatingsLayoutMode {
     EPISODES_ACROSS,
     SEASONS_ACROSS
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun EpisodeRatingsSection(
+fun EpisodeRatingsOverlayDialog(
     meta: Meta,
     episodes: List<Video>,
     ratings: Map<Pair<Int, Int>, Double>,
     isLoading: Boolean,
     error: String?,
-    modifier: Modifier = Modifier,
-    title: String = "Ratings",
-    upFocusRequester: FocusRequester? = null,
-    downFocusRequester: FocusRequester? = null,
-    firstItemFocusRequester: FocusRequester? = null
+    onDismiss: () -> Unit,
+    backdropModel: Any? = meta.backdropUrl
 ) {
     val chartData = remember(episodes, ratings) {
         buildEpisodeRatingsChartData(episodes = episodes, ratings = ratings)
     }
     var layoutMode by rememberSaveable(meta.id) { mutableStateOf(RatingsLayoutMode.EPISODES_ACROSS) }
-    var showDialog by rememberSaveable(meta.id) { mutableStateOf(false) }
 
-    if (showDialog) {
-        EpisodeRatingsOverlay(
-            meta = meta,
-            chartData = chartData,
-            layoutMode = layoutMode,
-            onLayoutModeChanged = { layoutMode = it },
-            onDismiss = { showDialog = false }
-        )
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = if (title.isNotBlank()) 14.dp else 6.dp, bottom = 8.dp)
-    ) {
-        if (title.isNotBlank()) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = NuvioColors.TextPrimary,
-                modifier = Modifier.padding(horizontal = 48.dp)
+    when {
+        isLoading -> {
+            EpisodeRatingsOverlayMessageDialog(
+                title = meta.name,
+                backdropModel = backdropModel,
+                message = stringResource(R.string.ratings_loading),
+                onDismiss = onDismiss
             )
         }
-
-        when {
-            isLoading -> MessageText(stringResource(R.string.ratings_loading))
-            error != null -> MessageText(error)
-            chartData.displaySeasonNumbers.isEmpty() -> MessageText(stringResource(R.string.ratings_unavailable))
-            else -> {
-                RatingsLauncherButton(
-                    onClick = { showDialog = true },
-                    modifier = Modifier.padding(horizontal = 48.dp, vertical = 8.dp),
-                    firstItemFocusRequester = firstItemFocusRequester,
-                    upFocusRequester = upFocusRequester,
-                    downFocusRequester = downFocusRequester
-                )
-            }
+        error != null -> {
+            EpisodeRatingsOverlayMessageDialog(
+                title = meta.name,
+                backdropModel = backdropModel,
+                message = error,
+                onDismiss = onDismiss
+            )
+        }
+        chartData.displaySeasonNumbers.isEmpty() -> {
+            EpisodeRatingsOverlayMessageDialog(
+                title = meta.name,
+                backdropModel = backdropModel,
+                message = stringResource(R.string.ratings_unavailable),
+                onDismiss = onDismiss
+            )
+        }
+        else -> {
+            EpisodeRatingsOverlay(
+                meta = meta,
+                chartData = chartData,
+                backdropModel = backdropModel,
+                layoutMode = layoutMode,
+                onLayoutModeChanged = { layoutMode = it },
+                onDismiss = onDismiss
+            )
         }
     }
+}
+
+@Composable
+private fun EpisodeRatingsBackdrop(backdropModel: Any?) {
+    if (backdropModel != null) {
+        AsyncImage(
+            model = backdropModel,
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            alignment = Alignment.TopEnd
+        )
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.horizontalGradient(
+                    colors = listOf(
+                        Color.Black.copy(alpha = 0.82f),
+                        Color.Black.copy(alpha = 0.40f),
+                        Color.Black.copy(alpha = 0.04f)
+                    )
+                )
+            )
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Black.copy(alpha = 0.08f),
+                        Color.Transparent,
+                        Color.Black.copy(alpha = 0.68f)
+                    )
+                )
+            )
+    )
+}
+
+@Composable
+private fun OverlayHeaderBar(
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(OverlayShape)
+            .background(Color.Black.copy(alpha = 0.24f))
+            .border(1.dp, Color.White.copy(alpha = 0.08f), OverlayShape)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+        content = content
+    )
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun RatingsLauncherButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    upFocusRequester: FocusRequester? = null,
-    downFocusRequester: FocusRequester? = null,
-    firstItemFocusRequester: FocusRequester? = null
+private fun EpisodeRatingsOverlayMessageDialog(
+    title: String,
+    backdropModel: Any?,
+    message: String,
+    onDismiss: () -> Unit
 ) {
-    Button(
-        onClick = onClick,
-        modifier = modifier
-            .fillMaxWidth()
-            .let {
-                if (firstItemFocusRequester != null) it.focusRequester(firstItemFocusRequester) else it
-            }
-            .focusProperties {
-                if (upFocusRequester != null) up = upFocusRequester
-                if (downFocusRequester != null) down = downFocusRequester
-            },
-        colors = ButtonDefaults.colors(
-            containerColor = NuvioColors.Surface.copy(alpha = 0.76f),
-            focusedContainerColor = NuvioColors.Secondary
+    BackHandler(onBack = onDismiss)
+    val closeRequester = remember { FocusRequester() }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false
         )
     ) {
-        Text(
-            text = stringResource(R.string.ratings_view_chart),
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-            color = NuvioColors.TextPrimary
-        )
-    }
-}
+        Box(modifier = Modifier.fillMaxSize()) {
+            EpisodeRatingsBackdrop(backdropModel = backdropModel)
 
-@Composable
-private fun MessageText(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodyMedium,
-        color = NuvioColors.TextSecondary,
-        modifier = Modifier.padding(horizontal = 48.dp, vertical = 12.dp)
-    )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 28.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OverlayHeaderBar {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = NuvioColors.TextPrimary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.focusRequester(closeRequester),
+                        colors = ButtonDefaults.colors(
+                            containerColor = NuvioColors.BackgroundCard,
+                            focusedContainerColor = NuvioColors.FocusBackground,
+                            contentColor = NuvioColors.TextPrimary,
+                            focusedContentColor = NuvioColors.Primary
+                        )
+                    ) {
+                        Text(
+                            text = stringResource(R.string.ratings_close_overlay),
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(OverlayShape)
+                        .background(NuvioColors.Surface.copy(alpha = 0.60f))
+                        .border(1.dp, Color.White.copy(alpha = 0.10f), OverlayShape)
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = NuvioColors.TextPrimary,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -201,6 +285,7 @@ private fun MessageText(text: String) {
 private fun EpisodeRatingsOverlay(
     meta: Meta,
     chartData: EpisodeRatingsChartData,
+    backdropModel: Any?,
     layoutMode: RatingsLayoutMode,
     onLayoutModeChanged: (RatingsLayoutMode) -> Unit,
     onDismiss: () -> Unit
@@ -233,28 +318,16 @@ private fun EpisodeRatingsOverlay(
             dismissOnClickOutside = false
         )
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.78f))
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            EpisodeRatingsBackdrop(backdropModel = backdropModel)
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(10.dp)
-                    .clip(OverlayShape)
-                    .background(NuvioColors.BackgroundElevated)
-                    .border(1.dp, Color.White.copy(alpha = 0.12f), OverlayShape)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .padding(horizontal = 28.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(32.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                OverlayHeaderBar {
                     Text(
                         text = meta.name,
                         style = MaterialTheme.typography.titleSmall,
@@ -288,7 +361,7 @@ private fun EpisodeRatingsOverlay(
                                 .onFocusChanged { toggleFocused = it.isFocused }
                         ) {
                             Text(
-                                text = "Layout:",
+                                text = "Inverted",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = NuvioColors.TextSecondary
                             )
@@ -392,7 +465,7 @@ private fun RatingLegendStrip(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             CurrentSeasonClockIcon(
-                modifier = Modifier.size(12.dp)
+                modifier = Modifier.size(16.dp)
             )
             Text(
                 text = "Current",
@@ -406,9 +479,10 @@ private fun RatingLegendStrip(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             StatusClockBadge(
-                iconTint = NuvioColors.TextSecondary,
+                iconTint = Color.White,
                 containerColor = ColorMutedCell,
-                modifier = Modifier.size(12.dp)
+                modifier = Modifier.size(14.dp),
+                iconSize = 11.dp
             )
             Text(
                 text = "Unreleased",
@@ -486,7 +560,7 @@ private fun CurrentSeasonClockIcon(modifier: Modifier = Modifier) {
     Icon(
         imageVector = Icons.Default.AccessTime,
         contentDescription = null,
-        tint = Color(0xFF0B1F3A),
+        tint = ColorCurrentSeason,
         modifier = modifier
     )
 }
@@ -495,7 +569,8 @@ private fun CurrentSeasonClockIcon(modifier: Modifier = Modifier) {
 private fun StatusClockBadge(
     iconTint: Color,
     containerColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    iconSize: androidx.compose.ui.unit.Dp = 10.dp
 ) {
     Box(
         modifier = modifier
@@ -507,7 +582,7 @@ private fun StatusClockBadge(
             imageVector = Icons.Default.AccessTime,
             contentDescription = null,
             tint = iconTint,
-            modifier = Modifier.size(8.dp)
+            modifier = Modifier.size(iconSize)
         )
     }
 }
@@ -618,7 +693,8 @@ private fun LegendRow(item: LegendItem, modifier: Modifier = Modifier) {
             StatusClockBadge(
                 iconTint = item.iconColor,
                 containerColor = item.iconContainerColor,
-                modifier = Modifier.size(14.dp)
+                modifier = Modifier.size(14.dp),
+                iconSize = 11.dp
             )
         } else if (item.iconColor != null) {
             CurrentSeasonClockIcon(modifier = Modifier.size(14.dp))
@@ -808,9 +884,10 @@ private fun RatingsGridPanel(
                                                     }
                                                     EpisodeRatingCellState.UNAIRED -> {
                                                         StatusClockBadge(
-                                                            iconTint = NuvioColors.TextSecondary,
+                                                            iconTint = Color.White,
                                                             containerColor = ColorMutedCell,
-                                                            modifier = Modifier.size(18.dp)
+                                                            modifier = Modifier.size(18.dp),
+                                                            iconSize = 12.dp
                                                         )
                                                     }
                                                     EpisodeRatingCellState.SUMMARY -> Unit

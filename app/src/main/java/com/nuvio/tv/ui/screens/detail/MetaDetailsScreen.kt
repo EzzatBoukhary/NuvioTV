@@ -127,7 +127,6 @@ private enum class RestoreTarget {
 
 private enum class PeopleSectionTab {
     CAST,
-    RATINGS,
     MORE_LIKE_THIS,
     TRAILER,
     COLLECTION
@@ -885,8 +884,6 @@ private fun MetaDetailsContent(
     val moreLikeTabFocusRequester = remember { FocusRequester() }
     val trailerTabFocusRequester = remember { FocusRequester() }
     val collectionTabFocusRequester = remember { FocusRequester() }
-    val ratingsTabFocusRequester = remember { FocusRequester() }
-    val ratingsContentFocusRequester = remember { FocusRequester() }
     val castSectionFocusRequester = remember { FocusRequester() }
     val moreLikeSectionFocusRequester = remember { FocusRequester() }
     val trailerSectionFocusRequester = remember { FocusRequester() }
@@ -904,6 +901,7 @@ private fun MetaDetailsContent(
     var companyRestoreToken by rememberSaveable { mutableIntStateOf(0) }
     var initialHeroFocusRequested by rememberSaveable(meta.id) { mutableStateOf(false) }
     var showHeroPlayOptionsDialog by rememberSaveable(meta.id) { mutableStateOf(false) }
+    var showRatingsOverlay by rememberSaveable(meta.id) { mutableStateOf(false) }
     var initialDetailReturnFocusHandled by rememberSaveable(
         meta.id,
         detailReturnEpisodeFocusRequest?.season,
@@ -1107,9 +1105,7 @@ private fun MetaDetailsContent(
     val hasCastSection = directorWriterMembers.isNotEmpty() || normalCastMembers.isNotEmpty()
     val hasMoreLikeThisSection = moreLikeThis.isNotEmpty()
     val hasTrailerSection = remember(meta.trailers) { meta.trailers.any { !it.ytId.isNullOrBlank() } }
-    val hasRatingsSection = isTvShow
     val strTabCast = stringResource(R.string.detail_tab_cast)
-    val strTabRatings = stringResource(R.string.detail_tab_ratings)
     val strTabMoreLikeThis = stringResource(R.string.detail_tab_more_like_this)
     val strTabTrailer = stringResource(R.string.detail_tab_trailer)
     val strTabCollection = stringResource(R.string.tmdb_collections_title)
@@ -1122,10 +1118,8 @@ private fun MetaDetailsContent(
         hasCastSection,
         hasMoreLikeThisSection,
         hasTrailerSection,
-        hasRatingsSection,
         collection,
         castTabFocusRequester,
-        ratingsTabFocusRequester,
         moreLikeTabFocusRequester,
         trailerTabFocusRequester,
         collectionTabFocusRequester,
@@ -1138,15 +1132,6 @@ private fun MetaDetailsContent(
                         tab = PeopleSectionTab.CAST,
                         label = strTabCast,
                         focusRequester = castTabFocusRequester
-                    )
-                )
-            }
-            if (hasRatingsSection) {
-                add(
-                    PeopleTabItem(
-                        tab = PeopleSectionTab.RATINGS,
-                        label = strTabRatings,
-                        focusRequester = ratingsTabFocusRequester
                     )
                 )
             }
@@ -1203,7 +1188,7 @@ private fun MetaDetailsContent(
     val initialPeopleTab = when {
         availablePeopleTabs.contains(PeopleSectionTab.CAST) -> PeopleSectionTab.CAST
         availablePeopleTabs.isNotEmpty() -> availablePeopleTabs.first()
-        else -> PeopleSectionTab.RATINGS
+        else -> PeopleSectionTab.CAST
     }
     var activePeopleTab by rememberSaveable(meta.id) { mutableStateOf(initialPeopleTab) }
     var seasonOptionsDialogSeason by remember { mutableStateOf<Int?>(null) }
@@ -1239,14 +1224,9 @@ private fun MetaDetailsContent(
     val activePeopleTabFocusRequester = visiblePeopleTabItems
         .firstOrNull { it.tab == activePeopleTab }
         ?.focusRequester
-        ?: if (activePeopleTab == PeopleSectionTab.RATINGS && !hasVisiblePeopleTabs) {
-            ratingsContentFocusRequester
-        } else {
-            castTabFocusRequester
-        }
+        ?: castTabFocusRequester
     val episodesDownFocusRequester = when {
         hasVisiblePeopleTabs -> activePeopleTabFocusRequester
-        activePeopleTab == PeopleSectionTab.RATINGS -> ratingsContentFocusRequester
         else -> null
     }
     val commentsUpFocusRequester = when {
@@ -1256,7 +1236,6 @@ private fun MetaDetailsContent(
             PeopleSectionTab.MORE_LIKE_THIS -> moreLikeSectionFocusRequester
             PeopleSectionTab.TRAILER -> trailerSectionFocusRequester
             PeopleSectionTab.COLLECTION -> collectionSectionFocusRequester
-            PeopleSectionTab.RATINGS -> ratingsContentFocusRequester
         }
         isSeries -> seasonDownFocusRequester ?: heroPlayFocusRequester
         else -> heroPlayFocusRequester
@@ -1532,6 +1511,11 @@ private fun MetaDetailsContent(
                         showFullReleaseDate = showFullReleaseDate,
                         trailerAvailable = trailerButtonEnabled && !trailerUrl.isNullOrBlank(),
                         onTrailerClick = onTrailerButtonClick,
+                        ratingsAvailable = isTvShow,
+                        onRatingsClick = {
+                            markHeroRestore()
+                            showRatingsOverlay = true
+                        },
                         hideLogoDuringTrailer = hideLogoDuringTrailer,
                         isTrailerPlaying = isTrailerPlaying,
                         playButtonFocusRequester = heroPlayFocusRequester,
@@ -1641,7 +1625,6 @@ private fun MetaDetailsContent(
                             activeTab = activePeopleTab,
                             tabs = visiblePeopleTabItems,
                             upFocusRequester = seasonDownFocusRequester ?: heroPlayFocusRequester,
-                            ratingsDownFocusRequester = ratingsContentFocusRequester,
                             onTabFocused = { tab ->
                                 activePeopleTab = tab
                             }
@@ -1748,25 +1731,6 @@ private fun MetaDetailsContent(
                                     }
                                 )
                             }
-
-                            PeopleSectionTab.RATINGS -> {
-                                EpisodeRatingsSection(
-                                    meta = meta,
-                                    episodes = meta.videos,
-                                    ratings = episodeImdbRatings,
-                                    isLoading = isEpisodeRatingsLoading,
-                                    error = episodeRatingsError,
-                                    title = if (hasVisiblePeopleTabs) "" else strTabRatings,
-                                    upFocusRequester = if (hasVisiblePeopleTabs) {
-                                        ratingsTabFocusRequester
-                                    } else {
-                                        seasonDownFocusRequester ?: heroPlayFocusRequester
-                                    },
-                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else null,
-                                    firstItemFocusRequester = ratingsContentFocusRequester,
-                                    modifier = Modifier.heightIn(min = if (!hasItemsBelow) castSectionHeight else 0.dp)
-                                )
-                            }
                         }
                     }
                 }
@@ -1783,7 +1747,6 @@ private fun MetaDetailsContent(
                                 PeopleSectionTab.CAST -> castSectionFocusRequester
                                 PeopleSectionTab.MORE_LIKE_THIS -> moreLikeSectionFocusRequester
                                 PeopleSectionTab.TRAILER -> trailerSectionFocusRequester
-                                PeopleSectionTab.RATINGS -> ratingsContentFocusRequester
                                 else -> seasonDownFocusRequester ?: heroPlayFocusRequester
                             }
                         } else {
@@ -1969,6 +1932,18 @@ private fun MetaDetailsContent(
                 onRetry = onRetrySharedTrailer
             )
         }
+
+        if (showRatingsOverlay) {
+            EpisodeRatingsOverlayDialog(
+                meta = meta,
+                episodes = meta.videos,
+                ratings = episodeImdbRatings,
+                isLoading = isEpisodeRatingsLoading,
+                error = episodeRatingsError,
+                onDismiss = { showRatingsOverlay = false },
+                backdropModel = backdropRequest
+            )
+        }
     }
 }
 
@@ -2096,7 +2071,6 @@ private fun PeopleSectionTabs(
     activeTab: PeopleSectionTab,
     tabs: List<PeopleTabItem>,
     upFocusRequester: FocusRequester? = null,
-    ratingsDownFocusRequester: FocusRequester? = null,
     onTabFocused: (PeopleSectionTab) -> Unit
 ) {
     val defaultRequester = tabs.first().focusRequester
@@ -2126,7 +2100,6 @@ private fun PeopleSectionTabs(
                     selected = activeTab == item.tab,
                     focusRequester = item.focusRequester,
                     upFocusRequester = upFocusRequester,
-                    downFocusRequester = if (item.tab == PeopleSectionTab.RATINGS) ratingsDownFocusRequester else null,
                     onFocused = { onTabFocused(item.tab) }
                 )
             }

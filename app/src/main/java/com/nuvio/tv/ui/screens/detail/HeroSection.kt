@@ -92,6 +92,8 @@ fun HeroContentSection(
     isMovieWatched: Boolean,
     isMovieWatchedPending: Boolean,
     onToggleMovieWatched: () -> Unit,
+    ratingsAvailable: Boolean = false,
+    onRatingsClick: () -> Unit = {},
     trailerAvailable: Boolean = false,
     onTrailerClick: () -> Unit = {},
     hideLogoDuringTrailer: Boolean = false,
@@ -280,6 +282,14 @@ fun HeroContentSection(
                             )
                         }
 
+                        if (ratingsAvailable) {
+                            RatingsActionButton(
+                                contentDescription = stringResource(R.string.ratings_open_overlay),
+                                onClick = onRatingsClick,
+                                onFocused = onHeroActionFocused
+                            )
+                        }
+
                         if (trailerAvailable) {
                             ActionIconButtonPainter(
                                 painter = trailerPainter,
@@ -332,6 +342,78 @@ fun HeroContentSection(
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalComposeUiApi::class)
+@Composable
+private fun RatingsActionButton(
+    contentDescription: String,
+    onClick: () -> Unit,
+    onFocused: () -> Unit = {}
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(48.dp)
+            .onFocusChanged { state ->
+                isFocused = state.isFocused
+                if (state.isFocused) onFocused()
+            }
+            .focusProperties { up = FocusRequester.Cancel },
+        colors = IconButtonDefaults.colors(
+            containerColor = NuvioColors.BackgroundCard,
+            focusedContainerColor = NuvioColors.Secondary,
+            contentColor = NuvioColors.TextPrimary,
+            focusedContentColor = NuvioColors.OnSecondary
+        ),
+        border = IconButtonDefaults.border(
+            focusedBorder = Border(
+                border = BorderStroke(2.dp, NuvioColors.FocusRing),
+                shape = CircleShape
+            )
+        ),
+        shape = IconButtonDefaults.shape(shape = CircleShape)
+    ) {
+        ChartGlyph(
+            modifier = Modifier
+                .size(22.dp)
+                .padding(horizontal = 1.dp, vertical = 2.dp),
+            color = if (isFocused) NuvioColors.OnSecondary else NuvioColors.TextPrimary
+        )
+    }
+}
+
+@Composable
+private fun ChartGlyph(
+    modifier: Modifier = Modifier,
+    color: Color
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .height(8.dp)
+                .background(color, RoundedCornerShape(99.dp))
+        )
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .height(14.dp)
+                .background(color, RoundedCornerShape(99.dp))
+        )
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .height(11.dp)
+                .background(color, RoundedCornerShape(99.dp))
+        )
     }
 }
 
