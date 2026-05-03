@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -101,6 +102,7 @@ private data class RatingsGridMetrics(
     val cellWidth: androidx.compose.ui.unit.Dp,
     val cellHeight: androidx.compose.ui.unit.Dp,
     val rowHeaderWidth: androidx.compose.ui.unit.Dp,
+    val leadingHeaderWidth: androidx.compose.ui.unit.Dp,
     val gridSpacing: androidx.compose.ui.unit.Dp,
     val cellPadding: androidx.compose.ui.unit.Dp,
     val summaryBarWidth: androidx.compose.ui.unit.Dp,
@@ -125,6 +127,7 @@ private fun rememberRatingsGridMetrics(displayModel: RatingsDisplayModel): Ratin
         cellWidth = CellWidth * scale,
         cellHeight = CellHeight * scale,
         rowHeaderWidth = RowHeaderWidth * scale.coerceAtMost(1.35f),
+        leadingHeaderWidth = (RowHeaderWidth * scale.coerceAtMost(1.35f)).coerceAtLeast(78.dp),
         gridSpacing = if (scale > 1.6f) 8.dp else if (scale > 1.3f) 7.dp else if (scale > 1f) 5.dp else 4.dp,
         cellPadding = if (scale > 1.3f) 5.dp else if (scale > 1f) 4.dp else 3.dp,
         summaryBarWidth = if (scale > 1.6f) 20.dp else if (scale > 1.3f) 18.dp else if (scale > 1f) 14.dp else 12.dp,
@@ -377,16 +380,18 @@ private fun EpisodeRatingsOverlay(
                         text = meta.name,
                         style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp),
                         color = NuvioColors.TextPrimary,
-                        modifier = Modifier.weight(0.72f),
-                        maxLines = 1,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
 
                     Box(
-                        modifier = Modifier.weight(1.48f),
-                        contentAlignment = Alignment.CenterStart
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .wrapContentWidth(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        RatingLegendStrip(modifier = Modifier.fillMaxWidth())
+                        RatingLegendStrip(modifier = Modifier.wrapContentWidth())
                     }
 
                     Row(
@@ -474,7 +479,6 @@ private fun RatingLegendStrip(modifier: Modifier = Modifier) {
 
     Row(
         modifier = modifier
-            .fillMaxWidth()
             .horizontalScroll(scrollState)
             .padding(horizontal = 2.dp),
         horizontalArrangement = Arrangement.Start,
@@ -707,6 +711,40 @@ private fun List<RatingsDisplayCell>.findHorizontalNeighbor(
     return null
 }
 
+private fun RatingsDisplayModel.findHorizontalNeighborInColumn(
+    rowIndex: Int,
+    columnIndex: Int,
+    offset: Int
+): RatingsDisplayCell? {
+    var targetColumnIndex = columnIndex + offset
+    while (rows.isNotEmpty() && targetColumnIndex in rows.first().cells.indices) {
+        for (searchRowIndex in rowIndex downTo 0) {
+            val candidate = rows[searchRowIndex].cells.getOrNull(targetColumnIndex)
+            if (candidate?.episodeId != null) return candidate
+        }
+        for (searchRowIndex in (rowIndex + 1)..rows.lastIndex) {
+            val candidate = rows[searchRowIndex].cells.getOrNull(targetColumnIndex)
+            if (candidate?.episodeId != null) return candidate
+        }
+        targetColumnIndex += offset
+    }
+    return null
+}
+
+private fun RatingsDisplayModel.findStrictVerticalNeighbor(
+    rowIndex: Int,
+    columnIndex: Int,
+    offset: Int
+): RatingsDisplayCell? {
+    var targetRowIndex = rowIndex + offset
+    while (targetRowIndex in rows.indices) {
+        val candidate = rows[targetRowIndex].cells.getOrNull(columnIndex)
+        if (candidate?.episodeId != null) return candidate
+        targetRowIndex += offset
+    }
+    return null
+}
+
 @Composable
 private fun RatingLegendPanel(modifier: Modifier = Modifier) {
     Column(
@@ -818,9 +856,9 @@ private fun RatingsGridPanel(
             HeaderBadge(
                 label = displayModel.leadingHeader,
                 modifier = Modifier
-                    .width(metrics.rowHeaderWidth)
+                    .width(metrics.leadingHeaderWidth)
                     .height(metrics.cellHeight),
-                fontSize = 15.sp,
+                fontSize = 14.sp,
                 contentPadding = metrics.cellPadding
             )
             Spacer(modifier = Modifier.width(metrics.gridSpacing))
@@ -849,7 +887,7 @@ private fun RatingsGridPanel(
         ) {
             Column(
                 modifier = Modifier
-                    .width(metrics.rowHeaderWidth)
+                    .width(metrics.leadingHeaderWidth)
                     .verticalScroll(verticalScrollState)
                     .padding(end = metrics.gridSpacing)
             ) {
@@ -857,7 +895,7 @@ private fun RatingsGridPanel(
                     displayModel.rows.forEachIndexed { rowIndex, row ->
                         Box(
                             modifier = Modifier
-                                .width(metrics.rowHeaderWidth)
+                                .width(metrics.leadingHeaderWidth)
                                 .height(metrics.cellHeight)
                                 .padding(bottom = if (rowIndex == displayModel.rows.lastIndex) 0.dp else metrics.gridSpacing),
                             contentAlignment = Alignment.Center
@@ -906,10 +944,26 @@ private fun RatingsGridPanel(
                                     else -> {
                                         val episodeId = cell.episodeId
                                         val bringIntoViewRequester = remember(episodeId) { BringIntoViewRequester() }
-                                        val upCell = displayModel.findNeighbor(rowIndex, columnIndex, -1)
-                                        val downCell = displayModel.findNeighbor(rowIndex, columnIndex, 1)
-                                        val leftCell = row.cells.findHorizontalNeighbor(columnIndex, -1)
-                                        val rightCell = row.cells.findHorizontalNeighbor(columnIndex, 1)
+                                        val upCell = if (layoutMode == RatingsLayoutMode.SEASONS_ACROSS) {
+                                            displayModel.findStrictVerticalNeighbor(rowIndex, columnIndex, -1)
+                                        } else {
+                                            displayModel.findNeighbor(rowIndex, columnIndex, -1)
+                                        }
+                                        val downCell = if (layoutMode == RatingsLayoutMode.SEASONS_ACROSS) {
+                                            displayModel.findStrictVerticalNeighbor(rowIndex, columnIndex, 1)
+                                        } else {
+                                            displayModel.findNeighbor(rowIndex, columnIndex, 1)
+                                        }
+                                        val leftCell = if (layoutMode == RatingsLayoutMode.SEASONS_ACROSS) {
+                                            displayModel.findHorizontalNeighborInColumn(rowIndex, columnIndex, -1)
+                                        } else {
+                                            row.cells.findHorizontalNeighbor(columnIndex, -1)
+                                        }
+                                        val rightCell = if (layoutMode == RatingsLayoutMode.SEASONS_ACROSS) {
+                                            displayModel.findHorizontalNeighborInColumn(rowIndex, columnIndex, 1)
+                                        } else {
+                                            row.cells.findHorizontalNeighbor(columnIndex, 1)
+                                        }
 
                                         Card(
                                             onClick = {},
