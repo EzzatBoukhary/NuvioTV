@@ -88,7 +88,6 @@ private val ColorRegular = Color(0xFFF39C12)
 private val ColorBad = Color(0xFFE74C3C)
 private val ColorGarbage = Color(0xFF633974)
 private val ColorMutedCell = Color(0xFF111111)
-private val ColorCurrentSeason = Color(0xFF1976D2)
 
 internal enum class RatingsLayoutMode {
     EPISODES_ACROSS,
@@ -105,7 +104,6 @@ private data class RatingsGridMetrics(
     val summaryBarWidth: androidx.compose.ui.unit.Dp,
     val summaryBarWidthEpisodesAcross: androidx.compose.ui.unit.Dp,
     val summaryBarHeight: androidx.compose.ui.unit.Dp,
-    val currentSeasonIconSize: androidx.compose.ui.unit.Dp,
     val unreleasedIconBoxSize: androidx.compose.ui.unit.Dp,
     val unreleasedIconSize: androidx.compose.ui.unit.Dp
 )
@@ -130,7 +128,6 @@ private fun rememberRatingsGridMetrics(displayModel: RatingsDisplayModel): Ratin
         summaryBarWidth = if (scale > 1.6f) 20.dp else if (scale > 1.3f) 18.dp else if (scale > 1f) 14.dp else 12.dp,
         summaryBarWidthEpisodesAcross = if (scale > 1.6f) 22.dp else if (scale > 1.3f) 20.dp else if (scale > 1f) 16.dp else 14.dp,
         summaryBarHeight = if (scale > 1.3f) 4.dp else if (scale > 1f) 3.dp else 2.dp,
-        currentSeasonIconSize = if (scale > 1.6f) 20.dp else if (scale > 1.3f) 18.dp else 14.dp,
         unreleasedIconBoxSize = if (scale > 1.6f) 24.dp else if (scale > 1.3f) 22.dp else 18.dp,
         unreleasedIconSize = if (scale > 1.6f) 16.dp else if (scale > 1.3f) 14.dp else 12.dp
     )
@@ -509,45 +506,6 @@ private fun RatingLegendStrip(modifier: Modifier = Modifier) {
             if (index < 5) Spacer(modifier = Modifier.width(4.dp))
         }
         Spacer(modifier = Modifier.width(6.dp))
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(20.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.White.copy(alpha = 0.94f)),
-                contentAlignment = Alignment.Center
-            ) {
-                CurrentSeasonClockIcon(
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-            Text(
-                text = "Current",
-                style = MaterialTheme.typography.labelMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
-                color = NuvioColors.TextSecondary
-            )
-        }
-        Spacer(modifier = Modifier.width(6.dp))
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            StatusClockBadge(
-                iconTint = Color.White,
-                containerColor = ColorMutedCell,
-                modifier = Modifier.size(18.dp),
-                iconSize = 13.dp
-            )
-            Text(
-                text = "Unreleased",
-                style = MaterialTheme.typography.labelMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Medium),
-                color = NuvioColors.TextSecondary
-            )
-        }
-        Spacer(modifier = Modifier.width(6.dp))
     }
 }
 
@@ -578,16 +536,6 @@ private fun HeaderBadge(
             )
         }
     }
-}
-
-@Composable
-private fun CurrentSeasonClockIcon(modifier: Modifier = Modifier) {
-    Icon(
-        imageVector = Icons.Default.AccessTime,
-        contentDescription = null,
-        tint = Color.Black,
-        modifier = modifier
-    )
 }
 
 @Composable
@@ -918,15 +866,6 @@ private fun RatingsGridPanel(
                                                     }
                                                     EpisodeRatingCellState.SUMMARY -> Unit
                                                 }
-
-                                                if (cell.showCurrentSeasonBadge) {
-                                                    CurrentSeasonClockIcon(
-                                                        modifier = Modifier
-                                                            .align(Alignment.TopEnd)
-                                                            .padding(top = 1.dp, end = 1.dp)
-                                                            .size(metrics.currentSeasonIconSize)
-                                                    )
-                                                }
                                             }
                                         }
                                     }
@@ -953,7 +892,6 @@ internal fun buildEpisodeRatingsChartData(
 
     val seasonNumbers = normalizedEpisodes.mapNotNull { it.season }.distinct().sorted()
     val maxEpisodeNumber = normalizedEpisodes.maxOfOrNull { it.episode ?: 0 } ?: 0
-    val latestSeason = seasonNumbers.maxOrNull() ?: 0
     val episodeLookup = normalizedEpisodes.associateBy { requireNotNull(it.season) to requireNotNull(it.episode) }
 
     val seasonAverages = seasonNumbers.mapNotNull { seasonNumber ->
@@ -966,7 +904,6 @@ internal fun buildEpisodeRatingsChartData(
     return EpisodeRatingsChartData(
         displaySeasonNumbers = seasonNumbers,
         maxEpisodeNumber = maxEpisodeNumber,
-        latestSeasonNumber = latestSeason,
         episodeLookup = episodeLookup,
         ratings = ratings,
         seasonAverages = seasonAverages,
@@ -977,7 +914,6 @@ internal fun buildEpisodeRatingsChartData(
 internal data class EpisodeRatingsChartData(
     val displaySeasonNumbers: List<Int> = emptyList(),
     val maxEpisodeNumber: Int = 0,
-    val latestSeasonNumber: Int = 0,
     val episodeLookup: Map<Pair<Int, Int>, Video> = emptyMap(),
     val ratings: Map<Pair<Int, Int>, Double> = emptyMap(),
     val seasonAverages: List<SeasonAverage> = emptyList(),
@@ -1082,7 +1018,6 @@ internal data class EpisodeRatingsChartData(
         val episode = episodeLookup[seasonNumber to episodeNumber]
             ?: return RatingsDisplayCell.placeholder(seasonNumber, episodeNumber)
         val rating = ratings[seasonNumber to episodeNumber]
-        val isCurrentSeasonEpisode = seasonNumber == latestSeasonNumber && isRecentlyAiredEpisode(episode)
         val isUnaired = isFutureEpisode(episode)
         return RatingsDisplayCell(
             episodeId = episode.id,
@@ -1095,7 +1030,6 @@ internal data class EpisodeRatingsChartData(
                 else -> EpisodeRatingCellState.UNRATED
             },
             backgroundColor = rating?.let(::getRatingColor) ?: ColorMutedCell,
-            showCurrentSeasonBadge = rating != null && isCurrentSeasonEpisode,
             useDarkText = rating != null && rating >= 7.0 && rating < 8.0
         )
     }
@@ -1171,7 +1105,6 @@ internal data class RatingsDisplayCell(
     val ratingLabel: String,
     val state: EpisodeRatingCellState,
     val backgroundColor: Color,
-    val showCurrentSeasonBadge: Boolean,
     val useDarkText: Boolean
 ) {
     companion object {
@@ -1182,7 +1115,6 @@ internal data class RatingsDisplayCell(
             ratingLabel = "",
             state = EpisodeRatingCellState.UNRATED,
             backgroundColor = Color.Transparent,
-            showCurrentSeasonBadge = false,
             useDarkText = false
         )
 
@@ -1198,7 +1130,6 @@ internal data class RatingsDisplayCell(
             ratingLabel = ratingLabel,
             state = EpisodeRatingCellState.SUMMARY,
             backgroundColor = backgroundColor,
-            showCurrentSeasonBadge = false,
             useDarkText = useDarkText
         )
     }
@@ -1225,14 +1156,6 @@ private fun getRatingColor(rating: Double): Color {
 private fun isFutureEpisode(video: Video): Boolean {
     val releaseDate = parseReleaseDate(video.released) ?: return false
     return releaseDate.isAfter(LocalDate.now())
-}
-
-private fun isRecentlyAiredEpisode(video: Video): Boolean {
-    val releaseDate = parseReleaseDate(video.released) ?: return false
-    val now = LocalDate.now()
-    if (releaseDate.isAfter(now)) return false
-    val monthsDiff = (now.year - releaseDate.year) * 12 + (now.monthValue - releaseDate.monthValue)
-    return monthsDiff <= 6
 }
 
 private fun parseReleaseDate(value: String?): LocalDate? {
