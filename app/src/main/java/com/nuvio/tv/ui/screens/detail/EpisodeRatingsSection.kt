@@ -398,6 +398,7 @@ private fun EpisodeRatingsOverlay(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.focusRequester(toggleRequester)
                                 .focusProperties {
+                                    right = closeRequester
                                     down = firstCellFocusRequester ?: Cancel
                                 }
                                 .then(
@@ -443,7 +444,7 @@ private fun EpisodeRatingsOverlay(
                             modifier = Modifier
                                 .focusRequester(closeRequester)
                                 .focusProperties {
-                                    up = toggleRequester
+                                    left = toggleRequester
                                     down = firstCellFocusRequester ?: Cancel
                                 }
                         )
