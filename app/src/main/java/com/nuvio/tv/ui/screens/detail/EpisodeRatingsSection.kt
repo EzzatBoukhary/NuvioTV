@@ -220,6 +220,7 @@ fun EpisodeRatingsSection(
                                     color = NuvioColors.TextPrimary
                                 )
                                 val avg = seasonAverages[season]
+                                    ?.let { String.format("%.1f", it).toDouble() }
                                 Text(
                                     text = avg?.let { String.format("%.1f", it) } ?: "—",
                                     style = MaterialTheme.typography.labelSmall,
