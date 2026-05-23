@@ -219,13 +219,12 @@ fun EpisodeRatingsSection(
                                     style = MaterialTheme.typography.labelMedium,
                                     color = NuvioColors.TextPrimary
                                 )
-                                seasonAverages[season]?.let { avg ->
-                                    Text(
-                                        text = String.format("%.1f", avg),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = ratingColor(avg)
-                                    )
-                                }
+                                val avg = seasonAverages[season]
+                                Text(
+                                    text = avg?.let { String.format("%.1f", it) } ?: "—",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = avg?.let(::ratingColor) ?: NuvioColors.TextSecondary
+                                )
                             }
                         }
                     }
