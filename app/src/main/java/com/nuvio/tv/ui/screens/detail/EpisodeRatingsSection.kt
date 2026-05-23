@@ -183,11 +183,6 @@ fun EpisodeRatingsSection(
                             Modifier.focusRequester(seasonFocusRequesters.getValue(season))
                         }
 
-                        val seasonAvg = seasonAverages[season]
-                        val chipColor = seasonAvg?.let(::ratingColor)
-                            ?: if (isSelected) NuvioColors.FocusBackground else NuvioColors.BackgroundCard
-                        val chipTextColor = seasonAvg?.let(::ratingTextColor) ?: NuvioColors.TextPrimary
-
                         Card(
                             onClick = { selectedSeason = season },
                             modifier = modifierWithRequester
@@ -200,8 +195,12 @@ fun EpisodeRatingsSection(
                                 },
                             shape = CardDefaults.shape(shape = RoundedCornerShape(14.dp)),
                             colors = CardDefaults.colors(
-                                containerColor = chipColor,
-                                focusedContainerColor = chipColor
+                                containerColor = if (isSelected) {
+                                    NuvioColors.FocusBackground
+                                } else {
+                                    NuvioColors.BackgroundCard
+                                },
+                                focusedContainerColor = NuvioColors.FocusBackground
                             ),
                             border = CardDefaults.border(
                                 focusedBorder = Border(
@@ -218,13 +217,13 @@ fun EpisodeRatingsSection(
                                 Text(
                                     text = stringResource(R.string.ratings_season_label, season),
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = chipTextColor
+                                    color = NuvioColors.TextPrimary
                                 )
-                                seasonAvg?.let {
+                                seasonAverages[season]?.let { avg ->
                                     Text(
-                                        text = String.format("%.1f", it),
+                                        text = String.format("%.1f", avg),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = chipTextColor
+                                        color = ratingColor(avg)
                                     )
                                 }
                             }
